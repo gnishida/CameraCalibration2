@@ -214,6 +214,11 @@ void GLWidget3D::reconstruct() {
 		pts[1].push_back(cv::Point2f(388, 340));
 	}
 
+	for (int i = 0; i < pts[0].size(); ++i) {
+		pts[0][i].y = 480 - pts[0][i].y;
+		pts[1][i].y = 480 - pts[1][i].y;
+	}
+
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
 	cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
