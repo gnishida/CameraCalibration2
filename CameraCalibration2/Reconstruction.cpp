@@ -64,33 +64,32 @@ double Reconstruction::unprojectPoints(cv::Mat& P1, cv::Mat& P2, std::vector<cv:
 	double error = 0.0;
 
 	for (int i = 0; i < pts1.size(); ++i) {
-		cv::Mat L(4, 4, CV_64F);
+		cv::Mat L(4, 3, CV_64F);
+		cv::Mat b(4, 1, CV_64F);
 
 		L.at<double>(0, 0) = P1.at<double>(0, 0) - pts1[i].x * P1.at<double>(2, 0);
 		L.at<double>(0, 1) = P1.at<double>(0, 1) - pts1[i].x * P1.at<double>(2, 1);
 		L.at<double>(0, 2) = P1.at<double>(0, 2) - pts1[i].x * P1.at<double>(2, 2);
-		L.at<double>(0, 3) = P1.at<double>(0, 3) - pts1[i].x * P1.at<double>(2, 3);
+		b.at<double>(0, 0) = -P1.at<double>(0, 3) + pts1[i].x * P1.at<double>(2, 3);
 
 		L.at<double>(1, 0) = P1.at<double>(1, 0) - pts1[i].y * P1.at<double>(2, 0);
 		L.at<double>(1, 1) = P1.at<double>(1, 1) - pts1[i].y * P1.at<double>(2, 1);
 		L.at<double>(1, 2) = P1.at<double>(1, 2) - pts1[i].y * P1.at<double>(2, 2);
-		L.at<double>(1, 3) = P1.at<double>(1, 3) - pts1[i].y * P1.at<double>(2, 3);
+		b.at<double>(1, 0) = -P1.at<double>(1, 3) + pts1[i].y * P1.at<double>(2, 3);
 
 		L.at<double>(2, 0) = P2.at<double>(0, 0) - pts2[i].x * P2.at<double>(2, 0);
 		L.at<double>(2, 1) = P2.at<double>(0, 1) - pts2[i].x * P2.at<double>(2, 1);
 		L.at<double>(2, 2) = P2.at<double>(0, 2) - pts2[i].x * P2.at<double>(2, 2);
-		L.at<double>(2, 3) = P2.at<double>(0, 3) - pts2[i].x * P2.at<double>(2, 3);
+		b.at<double>(2, 0) = -P2.at<double>(0, 3) + pts2[i].x * P2.at<double>(2, 3);
 
 		L.at<double>(3, 0) = P2.at<double>(1, 0) - pts2[i].y * P2.at<double>(2, 0);
 		L.at<double>(3, 1) = P2.at<double>(1, 1) - pts2[i].y * P2.at<double>(2, 1);
 		L.at<double>(3, 2) = P2.at<double>(1, 2) - pts2[i].y * P2.at<double>(2, 2);
-		L.at<double>(3, 3) = P2.at<double>(1, 3) - pts2[i].y * P2.at<double>(2, 3);
+		b.at<double>(3, 0) = -P2.at<double>(1, 3) + pts2[i].y * P2.at<double>(2, 3);
 
-		cv::Mat u, d, v;
-		cv::SVD::compute(L, u, d, v);
-		std::cout << "V:" << std::endl;
-		std::cout << v.row(v.rows - 1) << std::endl;
-		cv::Point3f p = cv::Point3f(v.at<double>(v.rows - 1, 0) / v.at<double>(v.rows - 1, 3), v.at<double>(v.rows - 1, 1) / v.at<double>(v.rows - 1, 3), v.at<double>(v.rows - 1, 2) / v.at<double>(v.rows - 1, 3));
+		cv::Mat X = L.inv(cv::DECOMP_SVD) * b;
+		std::cout << "X:\n" << X << std::endl;
+		cv::Point3f p = cv::Point3f(X.at<double>(0, 0), X.at<double>(1, 0), X.at<double>(2,0));
 		pts3d.push_back(p);
 		std::cout << "point:" << p << std::endl;
 
