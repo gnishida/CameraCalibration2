@@ -3,6 +3,7 @@
 #include "MainWindow.h"
 #include <GL/GLU.h>
 #include "Reconstruction.h"
+#include <opencv2/nonfree/features2d.hpp>
 
 #define SQR(x)	((x) * (x))
 
@@ -121,13 +122,28 @@ void GLWidget3D::drawScene() {
 	glVertex3f(0, 0, 500);
 	glEnd();
 
-	glPointSize(5.0f);
-	glBegin(GL_POINTS);
+	if (pts3d.size() > 0) {
 	glColor3f(1.0, 1.0, 1.0);
-	for (int i = 0; i < pts3d.size(); ++i) {
-		glVertex3f(pts3d[i].x, pts3d[i].y, pts3d[i].z);
-	}
+	glBegin(GL_QUADS);
+	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
+	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
+	glVertex3f(pts3d[2].x, pts3d[2].y, pts3d[2].z);
+	glVertex3f(pts3d[1].x, pts3d[1].y, pts3d[1].z);
+
+	glColor3f(1.0, 1.0, 0.0);
+	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
+	glVertex3f(pts3d[7].x, pts3d[7].y, pts3d[7].z);
+	glVertex3f(pts3d[8].x, pts3d[8].y, pts3d[8].z);
+	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
+
+	glColor3f(0.0, 0.0, 1.0);
+	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
+	glVertex3f(pts3d[8].x, pts3d[8].y, pts3d[8].z);
+	glVertex3f(pts3d[9].x, pts3d[9].y, pts3d[9].z);
+	glVertex3f(pts3d[2].x, pts3d[2].y, pts3d[2].z);
+
 	glEnd();
+	}
 }
 
 QVector2D GLWidget3D::mouseTo2D(int x,int y) {
@@ -184,48 +200,193 @@ void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& co
 
 void GLWidget3D::reconstruct() {
 	cv::Mat img[2];
+	img[0] = cv::imread("images/calib1.jpg");
+	img[1] = cv::imread("images/calib2.jpg");
+
+	std::vector<std::vector<cv::Point3f> > objectPoints;
+	objectPoints.resize(2);
+	pts.resize(2);
+	for (int i = 0; i < 2; ++i) {
+		// ３Ｄ座標のセット
+		for (int r = 0; r < 7; ++r) {
+			for (int c = 0; c < 10; ++c) {
+				objectPoints[i].push_back(cv::Point3f(c * 21.7, (6-r) * 21.7, 0.0f));
+			}
+		}
+
+		// コーナー検出
+		if (cv::findChessboardCorners(img[i], cv::Size(10, 7), pts[i])) {
+			fprintf (stderr, "ok\n");
+		} else {
+			fprintf (stderr, "fail\n");
+		}
+
+		// サブピクセル精度のコーナー検出
+		cv::Mat grayMat(img[i].size(), CV_8UC1);
+		cv::cvtColor(img[i], grayMat, CV_RGB2GRAY);
+		cv::cornerSubPix(grayMat, pts[i], cv::Size(3, 3), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 20, 0.03));
+
+		for (int j = 0; j < pts[i].size(); ++j) {
+			pts[i][j].y = img[i].rows - pts[i][j].y;
+		}
+	}
+
+	// カメラキャリブレーション
+	cv::Mat cameraMatrix = cv::Mat::eye(3, 3, CV_64F);
+	cv::Mat distCoeffs = cv::Mat::zeros(1, 8, CV_64F);
+	std::vector<cv::Mat> rvecs;
+	std::vector<cv::Mat> tvecs;
+	cv::calibrateCamera(objectPoints, pts, img[0].size(), cameraMatrix, distCoeffs, rvecs, tvecs);
+
+	cv::Mat P[2];
+	cv::Mat extrinsicMat[2];
+	for (int i = 0; i < 2; ++i) {
+		// 射影行列の計算
+		cv::Mat rot33;
+		cv::Rodrigues(rvecs[i], rot33);
+		extrinsicMat[i] = (cv::Mat_<double>(3, 4) << rot33.at<double>(0, 0), rot33.at<double>(0, 1), rot33.at<double>(0, 2), tvecs[i].at<double>(0, 0),
+														rot33.at<double>(1, 0), rot33.at<double>(1, 1), rot33.at<double>(1, 2), tvecs[i].at<double>(1, 0),
+														rot33.at<double>(2, 0), rot33.at<double>(2, 1), rot33.at<double>(2, 2), tvecs[i].at<double>(2, 0));
+		
+		P[i] = cameraMatrix * extrinsicMat[i];
+
+		std::cout << "P[" << i << "]:\n" << P[i] << std::endl;
+	}
+
+	// Hを計算
+	cv::Mat H = P[1] * (P[0].t() * (P[0] * P[0].t()).inv());
+	std::cout << "H\n" << H << std::endl;
+
+	for (int j = 0; j < pts[0].size(); ++j) {
+		cv::Mat x = (cv::Mat_<double>(3, 1) << pts[0][j].x, pts[0][j].y, 1);
+		cv::Mat x2 = H * x;
+		cv::Point2f pt(x2.at<double>(0, 0) / x2.at<double>(2, 0), x2.at<double>(1, 0) / x2.at<double>(2, 0));
+		std::cout << pt << " <-> " << pts[1][j] << std::endl;
+	}
+
+
+
+
+
+
+	/*
+	img[0] = cv::imread("images/church1.jpg");
+	img[1] = cv::imread("images/church2.jpg");
+	std::vector<cv::KeyPoint> keypoints[2];
+	cv::SIFT sift;
+	sift.detect(img[0], keypoints[0]);
+    sift.detect(img[1], keypoints[1]);
+
+	cv::SurfDescriptorExtractor surfDesc;
+
+    // Extraction of the SURF descriptors
+    cv::Mat descriptors[2];
+    surfDesc.compute(img[0], keypoints[0], descriptors[0]);
+    surfDesc.compute(img[1], keypoints[1], descriptors[1]);
+
+	//cv::BruteForceMatcher<cv::L2<float> > matcher;
+	cv::BFMatcher matcher;
+	std::vector<cv::DMatch> matches;
+    matcher.match(descriptors[0], descriptors[1], matches);
+
+	cv::Mat img_matches;
+	cv::drawMatches(img[0], keypoints[0], img[1], keypoints[1], matches, img_matches);
+	cv::imwrite("matches.jpg", img_matches);
+
+	std::vector<int> pts_index[2];
+	for (std::vector<cv::DMatch>::const_iterator it= matches.begin(); it!= matches.end(); ++it) {
+         // Get the indexes of the selected matched keypoints
+         pts_index[0].push_back(it->queryIdx);
+         pts_index[1].push_back(it->trainIdx);
+    }
+
+    cv::KeyPoint::convert(keypoints[0], pts[0], pts_index[0]);
+    cv::KeyPoint::convert(keypoints[1], pts[1], pts_index[1]);
+	*/
+	
+
 	img[0] = cv::imread("images/image1.jpg");
 	img[1] = cv::imread("images/image2.jpg");
 
+	cv::Mat undistorted_img[2];
+	cv::undistort(img[0], undistorted_img[0], cameraMatrix, distCoeffs);
+	cv::imwrite("undistorted.jpg", undistorted_img[0]);
 
-	// とりあえず、対応点を手動で設定
+		// とりあえず、対応点を手動で設定
 	{
 		pts[0].clear();
 		pts[1].clear();
-		pts[0].push_back(cv::Point2f(96, 131));
-		pts[1].push_back(cv::Point2f(110, 166));
+		pts[0].push_back(cv::Point2f(95, 132));
+		pts[1].push_back(cv::Point2f(110, 167));
 		pts[0].push_back(cv::Point2f(234, 51));
-		pts[1].push_back(cv::Point2f(217, 79));
-		pts[0].push_back(cv::Point2f(467, 129));
-		pts[1].push_back(cv::Point2f(467, 134));
-		pts[0].push_back(cv::Point2f(327, 248));
+		pts[1].push_back(cv::Point2f(217, 78));
+		pts[0].push_back(cv::Point2f(467, 130));
+		pts[1].push_back(cv::Point2f(467, 135));
+		pts[0].push_back(cv::Point2f(328, 249));
 		pts[1].push_back(cv::Point2f(388, 251));
 		pts[0].push_back(cv::Point2f(104, 160));
-		pts[1].push_back(cv::Point2f(116, 193));
-		pts[0].push_back(cv::Point2f(333, 279));
-		pts[1].push_back(cv::Point2f(390, 280));
-		pts[0].push_back(cv::Point2f(468, 158));
+		pts[1].push_back(cv::Point2f(117, 194));
+		pts[0].push_back(cv::Point2f(333, 280));
+		pts[1].push_back(cv::Point2f(389, 280));
+		pts[0].push_back(cv::Point2f(469, 158));
 		pts[1].push_back(cv::Point2f(468, 159));
-		pts[0].push_back(cv::Point2f(128, 220));
-		pts[1].push_back(cv::Point2f(136, 251));
-		pts[0].push_back(cv::Point2f(463, 228));
-		pts[1].push_back(cv::Point2f(458, 225));
-		pts[0].push_back(cv::Point2f(340, 345));
-		pts[1].push_back(cv::Point2f(388, 340));
+		pts[0].push_back(cv::Point2f(129, 220));
+		pts[1].push_back(cv::Point2f(137, 251));
+		pts[0].push_back(cv::Point2f(341, 346));
+		pts[1].push_back(cv::Point2f(387, 340));
+		pts[0].push_back(cv::Point2f(462, 229));
+		pts[1].push_back(cv::Point2f(458, 226));
+	}
+	
+	// Y座標を反転させる
+	for (int i = 0; i < 2; ++i) {
+		for (int j = 0; j < pts[i].size(); ++j) {
+			pts[i][j].y = img[i].rows - pts[i][j].y;
+
+			//pts[i][j].x = (pts[i][j].x - cameraMatrix.at<double>(0, 2)) / cameraMatrix.at<double>(0, 0);
+			//pts[i][j].y = (pts[i][j].y - cameraMatrix.at<double>(1, 2)) / cameraMatrix.at<double>(1, 1);
+		}
 	}
 
-	for (int i = 0; i < pts[0].size(); ++i) {
-		pts[0][i].y = 480 - pts[0][i].y;
-		pts[1][i].y = 480 - pts[1][i].y;
-	}
+
 
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
-	cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
+	//cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
+	cv::Mat F = cv::findFundamentalMat(pts[0], pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
+	std::cout << "F:\n" << F << std::endl;
 
-	cv::Mat P[2];
-	reconstruction.computeProjectionMat(F, P[0], P[1]);
+	cv::Mat E = cameraMatrix.t() * F * cameraMatrix;
 
-	double avg_error = reconstruction.unprojectPoints(P[0], P[1], pts[0], pts[1], pts3d);
+
+	// epipoler lineを描画
+	for (int i = 0; i < 2; ++i) {
+		std::vector<cv::Point3f> lines;
+		cv::computeCorrespondEpilines(pts[1-i], 2 - i, F, lines);
+		
+		for (int j = 0; j < pts[i].size(); ++j) {
+			if (status[j] == 0) continue;
+
+			float x1 = 0;
+			float y1 = -lines[j].z / lines[j].y;
+			float x2 = img[i].cols - 1;
+			float y2 = -(lines[j].z + (img[i].cols - 1) * lines[j].x) / lines[j].y;
+
+			cv::Scalar color(j * 10 % 255, j * 40 % 255, j * 80 % 255);
+			cv::line(img[i], cv::Point(x1, img[i].rows - y1), cv::Point(x2, img[i].rows - y2), color, 1);
+
+			cv::circle(img[i], cv::Point(pts[i][j].x, img[i].rows - pts[i][j].y), 5, color, 1);
+		}
+
+		char filename[255];
+		sprintf(filename, "result%d.jpg", i);
+		cv::imwrite(filename, img[i]);
+	}
+
+	reconstruction.computeProjectionMat(E, P[0], P[1]);
+
+
+	double avg_error = reconstruction.unprojectPoints(cameraMatrix, P[0], P[1], pts[0], pts[1], pts3d);
 	printf("avg error: %lf\n", avg_error);	
+
 }

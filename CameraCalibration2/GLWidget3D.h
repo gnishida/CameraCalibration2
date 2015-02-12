@@ -20,7 +20,7 @@ private:
 	QPoint lastPos;
 
 	cv::Mat P[2];
-	std::vector<cv::Point2f> pts[2];
+	std::vector<std::vector<cv::Point2f> > pts;
 	std::vector<cv::Point3f> pts3d;
 
 public:
