@@ -278,9 +278,15 @@ void GLWidget3D::reconstruct() {
 	cv::Matx33d E = cv::findFundamentalMat(pts[0], pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
 	//cv::Matx33d E = cameraMatrix.t() * F * cameraMatrix;
 
+
+	std::cout << "det(E) should be less than 1e-07." << std::endl;
+	std::cout << "det(E): " << cv::determinant(E) << std::endl;
+
+
 	Matx34d P, P1;
 	reconstruction.computeProjectionMat(E, P, P1);
 
+	std::cout << "P:\n" << P1 << std::endl;
 
 	double avg_error = reconstruction.unprojectPoints(cameraMatrix, P, P1, pts[0], pts[1], pts3d);
 	printf("avg error: %lf\n", avg_error);	
