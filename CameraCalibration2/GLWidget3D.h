@@ -10,6 +10,7 @@
 #include <opencv/highgui.h>
 
 using namespace std;
+using namespace cv;
 
 class MainWindow;
 
@@ -29,6 +30,7 @@ public:
 	QVector2D mouseTo2D(int x,int y);
 	void drawSphere(float x, float y, float z, float r, const QColor& color);
 	void reconstruct();
+	void calibrateCamera(std::vector<cv::Mat>& img, Matx33d& cameraMatrix, Mat& distCoeffs, std::vector<Mat>& rvecs, std::vector<Mat>& tvecs);
 
 protected:
 	void initializeGL();

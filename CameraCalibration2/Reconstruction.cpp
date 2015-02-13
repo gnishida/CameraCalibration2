@@ -74,14 +74,14 @@ double Reconstruction::unprojectPoints(cv::Matx33d& cameraMatrix, const cv::Matx
 		cv::Point2f projected_point;
 		projected_point.x = projected_pt(0, 0) / projected_pt(2, 0);
 		projected_point.y = projected_pt(1, 0) / projected_pt(2, 0);
-		std::cout << "projected point1: " << projected_point << " (observed: " << um << ")" << std::endl;
-		error += cv::norm(pts1[i] - projected_point);
+		std::cout << "projected point1: " << projected_point << " (observed: " << u << ")" << std::endl;
+		//error += cv::norm(um - projected_point);
 		
 		projected_pt = P1 * pMat;
 		projected_point.x = projected_pt(0, 0) / projected_pt(2, 0);
 		projected_point.y = projected_pt(1, 0) / projected_pt(2, 0);
-		std::cout << "projected point2: " << projected_point << " (observed: " << um1 << ")" << std::endl;
-		error += cv::norm(pts2[i] - projected_point);
+		std::cout << "projected point2: " << projected_point << " (observed: " << u1 << ")" << std::endl;
+		//error += cv::norm(um1 - projected_point);
 	}
 
 	return error;

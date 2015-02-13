@@ -210,83 +210,27 @@ void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& co
 }
 
 void GLWidget3D::reconstruct() {
-	cv::Mat img[2];
+	std::vector<Mat> img(2);
 	img[0] = cv::imread("images/calib1.jpg");
 	img[1] = cv::imread("images/calib2.jpg");
+	//img[2] = cv::imread("images/calib3.jpg");
 
-	std::vector<std::vector<cv::Point3f> > objectPoints;
-	objectPoints.resize(2);
-	pts.resize(2);
-	for (int i = 0; i < 2; ++i) {
-		// ３Ｄ座標のセット
-		for (int r = 0; r < 7; ++r) {
-			for (int c = 0; c < 10; ++c) {
-				objectPoints[i].push_back(cv::Point3f(c * 21.7, (6-r) * 21.7, 0.0f));
-			}
-		}
-
-		// コーナー検出
-		if (cv::findChessboardCorners(img[i], cv::Size(10, 7), pts[i])) {
-			fprintf (stderr, "ok\n");
-		} else {
-			fprintf (stderr, "fail\n");
-		}
-
-		// サブピクセル精度のコーナー検出
-		cv::Mat grayMat(img[i].size(), CV_8UC1);
-		cv::cvtColor(img[i], grayMat, CV_RGB2GRAY);
-		cv::cornerSubPix(grayMat, pts[i], cv::Size(3, 3), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 20, 0.03));
-
-		for (int j = 0; j < pts[i].size(); ++j) {
-			pts[i][j].y = img[i].rows - pts[i][j].y;
-		}
-	}
-
-	// カメラキャリブレーション
 	cv::Matx33d cameraMatrix(1, 0, 0, 0, 1, 0, 0, 0, 1);
 	cv::Mat distCoeffs = cv::Mat::zeros(1, 8, CV_64F);
 	std::vector<cv::Mat> rvecs;
 	std::vector<cv::Mat> tvecs;
-	cv::calibrateCamera(objectPoints, pts, img[0].size(), cameraMatrix, distCoeffs, rvecs, tvecs);
 
-	/*
-	cv::Mat P[2];
-	cv::Mat extrinsicMat[2];
-	for (int i = 0; i < 2; ++i) {
-		// 射影行列の計算
-		cv::Mat rot33;
-		cv::Rodrigues(rvecs[i], rot33);
-		extrinsicMat[i] = (cv::Mat_<double>(3, 4) << rot33.at<double>(0, 0), rot33.at<double>(0, 1), rot33.at<double>(0, 2), tvecs[i].at<double>(0, 0),
-														rot33.at<double>(1, 0), rot33.at<double>(1, 1), rot33.at<double>(1, 2), tvecs[i].at<double>(1, 0),
-														rot33.at<double>(2, 0), rot33.at<double>(2, 1), rot33.at<double>(2, 2), tvecs[i].at<double>(2, 0));
-		
-		P[i] = cameraMatrix * extrinsicMat[i];
+	calibrateCamera(img, cameraMatrix, distCoeffs, rvecs, tvecs);
 
-		std::cout << "P[" << i << "]:\n" << P[i] << std::endl;
-	}
+	std::cout << "K:\n" << cameraMatrix << std::endl;
 
-	// Hを計算
-	cv::Mat H = P[1] * (P[0].t() * (P[0] * P[0].t()).inv());
-	std::cout << "H\n" << H << std::endl;
 
-	for (int j = 0; j < pts[0].size(); ++j) {
-		cv::Mat x = (cv::Mat_<double>(3, 1) << pts[0][j].x, pts[0][j].y, 1);
-		cv::Mat x2 = H * x;
-		cv::Point2f pt(x2.at<double>(0, 0) / x2.at<double>(2, 0), x2.at<double>(1, 0) / x2.at<double>(2, 0));
-		std::cout << pt << " <-> " << pts[1][j] << std::endl;
-	}
-	*/
-
-	
 
 	img[0] = cv::imread("images/image1.jpg");
 	img[1] = cv::imread("images/image2.jpg");
 
-	cv::Mat undistorted_img[2];
-	cv::undistort(img[0], undistorted_img[0], cameraMatrix, distCoeffs);
-	cv::imwrite("undistorted.jpg", undistorted_img[0]);
-
-		// とりあえず、対応点を手動で設定
+	// とりあえず、対応点を手動で設定
+	pts.resize(2);
 	{
 		pts[0].clear();
 		pts[1].clear();
@@ -328,12 +272,11 @@ void GLWidget3D::reconstruct() {
 		}
 	}
 
-
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
 	//cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
 	cv::Matx33d E = cv::findFundamentalMat(pts[0], pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
-
+	//cv::Matx33d E = cameraMatrix.t() * F * cameraMatrix;
 
 	Matx34d P, P1;
 	reconstruction.computeProjectionMat(E, P, P1);
@@ -348,4 +291,40 @@ void GLWidget3D::reconstruct() {
 		pts3d[i].y *= -scale_factor;
 		pts3d[i].z *= scale_factor;
 	}
+}
+
+void GLWidget3D::calibrateCamera(std::vector<cv::Mat>& img, Matx33d& cameraMatrix, Mat& distCoeffs, std::vector<Mat>& rvecs, std::vector<Mat>& tvecs) {
+	std::vector<std::vector<cv::Point3f> > objectPoints;
+	objectPoints.resize(img.size());
+
+	std::vector<std::vector<cv::Point2f> > pts;
+	pts.resize(img.size());
+
+	for (int i = 0; i < img.size(); ++i) {
+		// ３Ｄ座標のセット
+		for (int r = 0; r < 7; ++r) {
+			for (int c = 0; c < 10; ++c) {
+				objectPoints[i].push_back(cv::Point3f(c * 21.7, (6-r) * 21.7, 0.0f));
+			}
+		}
+
+		// コーナー検出
+		if (cv::findChessboardCorners(img[i], cv::Size(10, 7), pts[i])) {
+			fprintf (stderr, "ok\n");
+		} else {
+			fprintf (stderr, "fail\n");
+		}
+
+		// サブピクセル精度のコーナー検出
+		cv::Mat grayMat(img[i].size(), CV_8UC1);
+		cv::cvtColor(img[i], grayMat, CV_RGB2GRAY);
+		cv::cornerSubPix(grayMat, pts[i], cv::Size(3, 3), cv::Size(-1, -1), cv::TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 20, 0.03));
+
+		for (int j = 0; j < pts[i].size(); ++j) {
+			pts[i][j].y = img[i].rows - pts[i][j].y;
+		}
+	}
+
+	cv::calibrateCamera(objectPoints, pts, img[0].size(), cameraMatrix, distCoeffs, rvecs, tvecs);
+
 }
