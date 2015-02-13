@@ -277,44 +277,6 @@ void GLWidget3D::reconstruct() {
 	}
 	*/
 
-
-
-
-
-	/*
-	img[0] = cv::imread("images/church1.jpg");
-	img[1] = cv::imread("images/church2.jpg");
-	std::vector<cv::KeyPoint> keypoints[2];
-	cv::SIFT sift;
-	sift.detect(img[0], keypoints[0]);
-    sift.detect(img[1], keypoints[1]);
-
-	cv::SurfDescriptorExtractor surfDesc;
-
-    // Extraction of the SURF descriptors
-    cv::Mat descriptors[2];
-    surfDesc.compute(img[0], keypoints[0], descriptors[0]);
-    surfDesc.compute(img[1], keypoints[1], descriptors[1]);
-
-	//cv::BruteForceMatcher<cv::L2<float> > matcher;
-	cv::BFMatcher matcher;
-	std::vector<cv::DMatch> matches;
-    matcher.match(descriptors[0], descriptors[1], matches);
-
-	cv::Mat img_matches;
-	cv::drawMatches(img[0], keypoints[0], img[1], keypoints[1], matches, img_matches);
-	cv::imwrite("matches.jpg", img_matches);
-
-	std::vector<int> pts_index[2];
-	for (std::vector<cv::DMatch>::const_iterator it= matches.begin(); it!= matches.end(); ++it) {
-         // Get the indexes of the selected matched keypoints
-         pts_index[0].push_back(it->queryIdx);
-         pts_index[1].push_back(it->trainIdx);
-    }
-
-    cv::KeyPoint::convert(keypoints[0], pts[0], pts_index[0]);
-    cv::KeyPoint::convert(keypoints[1], pts[1], pts_index[1]);
-	*/
 	
 
 	img[0] = cv::imread("images/image1.jpg");
@@ -354,71 +316,36 @@ void GLWidget3D::reconstruct() {
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < pts[i].size(); ++j) {
 			pts[i][j].y = img[i].rows - pts[i][j].y;
-
-			//pts[i][j].x = (pts[i][j].x - cameraMatrix.at<double>(0, 2)) / cameraMatrix.at<double>(0, 0);
-			//pts[i][j].y = (pts[i][j].y - cameraMatrix.at<double>(1, 2)) / cameraMatrix.at<double>(1, 1);
 		}
 	}
 
+	// 座標の正規化
+	cv::Matx33d Kinv = cameraMatrix.inv();
+	for (int i = 0; i < 2; ++i) {
+		for (int j = 0; j < pts[i].size(); ++j) {
+			pts[i][j].x = (pts[i][j].x - cameraMatrix(0, 2)) / cameraMatrix(0, 0);
+			pts[i][j].y = (pts[i][j].y - cameraMatrix(1, 2)) / cameraMatrix(1, 1);
+		}
+	}
 
 
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
 	//cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
-	cv::Matx33d F = cv::findFundamentalMat(pts[0], pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
-	std::cout << "F:\n" << F << std::endl;
-
-	cv::Matx33d E = cameraMatrix.t() * F * cameraMatrix;
+	cv::Matx33d E = cv::findFundamentalMat(pts[0], pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
 
 
-
-	SVD svd(E);
-	Matx33d W(0,-1,0,   //HZ 9.13
-		  1,0,0,
-		0,0,1);
-	Matx33d Winv(0,1,0,
-	     -1,0,0,
-		 0,0,1);
-	Mat_<double> R = svd.u * Mat(W) * svd.vt; //HZ 9.19
-	Mat_<double> t = svd.u.col(2); //u3
-	Matx34d P = Matx34d(1, 0, 0, 0,
-		                0, 1, 0, 0,
-						0, 0, 1, 0);
-	Matx34d P1 = Matx34d(R(0,0),    R(0,1), R(0,2), t(0),
-		     R(1,0),    R(1,1), R(1,2), t(1),
-			 R(2,0),    R(2,1), R(2,2), t(2));
-
-
-
-
-	// epipoler lineを描画
-	for (int i = 0; i < 2; ++i) {
-		std::vector<cv::Point3f> lines;
-		cv::computeCorrespondEpilines(pts[1-i], 2 - i, F, lines);
-		
-		for (int j = 0; j < pts[i].size(); ++j) {
-			if (status[j] == 0) continue;
-
-			float x1 = 0;
-			float y1 = -lines[j].z / lines[j].y;
-			float x2 = img[i].cols - 1;
-			float y2 = -(lines[j].z + (img[i].cols - 1) * lines[j].x) / lines[j].y;
-
-			cv::Scalar color(j * 10 % 255, j * 40 % 255, j * 80 % 255);
-			cv::line(img[i], cv::Point(x1, img[i].rows - y1), cv::Point(x2, img[i].rows - y2), color, 1);
-
-			cv::circle(img[i], cv::Point(pts[i][j].x, img[i].rows - pts[i][j].y), 5, color, 1);
-		}
-
-		char filename[255];
-		sprintf(filename, "result%d.jpg", i);
-		cv::imwrite(filename, img[i]);
-	}
-
-	//reconstruction.computeProjectionMat(E, P[0], P[1]);
+	Matx34d P, P1;
+	reconstruction.computeProjectionMat(E, P, P1);
 
 
 	double avg_error = reconstruction.unprojectPoints(cameraMatrix, P, P1, pts[0], pts[1], pts3d);
 	printf("avg error: %lf\n", avg_error);	
 
+	float scale_factor = 1000.0f;
+	for (int i = 0; i < pts3d.size(); ++i) {
+		pts3d[i].x *= scale_factor;
+		pts3d[i].y *= -scale_factor;
+		pts3d[i].z *= scale_factor;
+	}
 }

@@ -29,65 +29,18 @@ cv::Mat Reconstruction::computeEpipole(cv::Mat& F, int whichImage) {
 	return e;
 }
 
-void Reconstruction::computeProjectionMat(cv::Mat& E, cv::Mat& P1, cv::Mat& P2) {
-	/*
-	// e2を計算(F^T e2 = 0より)
-	cv::Mat e2 = cv::Mat(3, 1, CV_64F);
-	cv::Mat u, d, v;
-	cv::SVD::compute(F.t(), u, d, v);
-	e2.at<double>(0, 0) = v.at<double>(v.rows - 1, 0);
-	e2.at<double>(1, 0) = v.at<double>(v.rows - 1, 1);
-	e2.at<double>(2, 0) = v.at<double>(v.rows - 1, 2);
-	cv::normalize(e2, e2);
-
-	std::cout << "e2:\n" << e2 << std::endl;
-
-	// 行列Aを計算(A=[e2]x F)
-	cv::Mat e2x = cv::Mat::zeros(3, 3, CV_64F);
-	e2x.at<double>(0, 1) = -e2.at<double>(2, 0);
-	e2x.at<double>(0, 2) = e2.at<double>(1, 0);
-	e2x.at<double>(1, 0) = e2.at<double>(2, 0);
-	e2x.at<double>(1, 2) = -e2.at<double>(0, 0);
-	e2x.at<double>(2, 0) = -e2.at<double>(1, 0);
-	e2x.at<double>(2, 1) = e2.at<double>(0, 0);
-	cv::Mat A = -e2x * F;
-	*/
-
-	// 射影行列P1を計算
-	P1 = cv::Mat::eye(3, 4, CV_64F);
-
-	// 射影行列P2を計算
-	cv::SVD svd(E);
-	std::cout << svd.u << std::endl;
-	std::cout << svd.w << std::endl;
-	std::cout << svd.vt << std::endl;
-
-	cv::Mat W = (cv::Mat_<double>(3, 3) << 0, -1, 0,
-											1, 0, 0,
-											0, 0, 1);
-
-	cv::Mat R = svd.u * W * svd.vt;
-	cv::Mat t = svd.u.col(2);
-	P2 = (cv::Mat_<double>(3, 4) << R.at<double>(0, 0), R.at<double>(0, 1), R.at<double>(0, 2), t.at<double>(0, 0),
-									R.at<double>(1, 0), R.at<double>(1, 1), R.at<double>(1, 2), t.at<double>(1, 0),
-									R.at<double>(2, 0), R.at<double>(2, 1), R.at<double>(2, 2), t.at<double>(2, 0));
-
-
-	/*
-	P2 = (cv::Mat_<double>(3, 4) << A.at<double>(0, 0), A.at<double>(0, 1), A.at<double>(0, 2), e2.at<double>(0, 0),
-									A.at<double>(1, 0), A.at<double>(1, 1), A.at<double>(1, 2), e2.at<double>(1, 0),
-									A.at<double>(2, 0), A.at<double>(2, 1), A.at<double>(2, 2), e2.at<double>(2, 0));
-									*/
-	/*
-	cv::Mat vec(1, 3, CV_64F);
-	cv::randu(vec, 0, 10);
-	cv::Mat tmpP(P2, cv::Rect(0, 0, 3, 3));
-	tmpP = A + e2 * vec;
-	double lambda = 1.0;
-	P2.at<double>(0, 3) = e2.at<double>(0, 0) * lambda;
-	P2.at<double>(1, 3) = e2.at<double>(1, 0) * lambda;
-	P2.at<double>(2, 3) = e2.at<double>(2, 0) * lambda;
-	*/
+void Reconstruction::computeProjectionMat(Matx33d E, Matx34d& P1, Matx34d& P2) {
+	SVD svd(E);
+	Matx33d W(0, -1, 0, 1, 0, 0, 0, 0, 1);
+	Matx33d Winv(0, 1, 0, -1, 0, 0, 0, 0, 1);
+	Mat_<double> R = svd.u * Mat(W) * svd.vt;
+	Mat_<double> t = svd.u.col(2);
+	P1 = Matx34d(1, 0, 0, 0,
+	             0, 1, 0, 0,
+				 0, 0, 1, 0);
+	P2 = Matx34d(R(0,0), R(0,1), R(0,2), t(0),
+				 R(1,0), R(1,1), R(1,2), t(1),
+				 R(2,0), R(2,1), R(2,2), t(2));
 }
 
 double Reconstruction::unprojectPoints(cv::Matx33d& cameraMatrix, const cv::Matx34d& P, const cv::Matx34d& P1, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d) {
@@ -101,11 +54,11 @@ double Reconstruction::unprojectPoints(cv::Matx33d& cameraMatrix, const cv::Matx
 	for (int i = 0; i < pts1.size(); ++i) {
 		Point3d u(pts1[i].x, pts1[i].y, 1.0);
 		Matx31d um = Kinv * Matx31d(u);
-		u.x = um(0); u.y = um(1); u.z = um(2);
+		//u.x = um(0); u.y = um(1); u.z = um(2);
 		
 		Point3d u1(pts2[i].x, pts2[i].y, 1.0);
 		Matx31d um1 = Kinv * Matx31d(u1);
-		u1.x = um1(0); u1.y = um1(1); u1.z = um1(2);
+		//u1.x = um1(0); u1.y = um1(1); u1.z = um1(2);
 
 		Matx41d X = iterativeTriangulation(u, P, u1, P1);
 
