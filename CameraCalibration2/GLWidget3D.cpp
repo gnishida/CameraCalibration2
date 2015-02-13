@@ -7,6 +7,8 @@
 
 #define SQR(x)	((x) * (x))
 
+using namespace cv;
+
 GLWidget3D::GLWidget3D(MainWindow* mainWin) {
 	this->mainWin = mainWin;
 
@@ -124,9 +126,13 @@ void GLWidget3D::drawScene() {
 
 	if (pts3d.size() > 0) {
 	glColor3f(1.0, 1.0, 1.0);
-	glBegin(GL_QUADS);
+	glBegin(GL_TRIANGLES);
 	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
 	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
+	glVertex3f(pts3d[2].x, pts3d[2].y, pts3d[2].z);
+
+	glColor3f(1.0, 0.0, 0.0);
+	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
 	glVertex3f(pts3d[2].x, pts3d[2].y, pts3d[2].z);
 	glVertex3f(pts3d[1].x, pts3d[1].y, pts3d[1].z);
 
@@ -134,14 +140,19 @@ void GLWidget3D::drawScene() {
 	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
 	glVertex3f(pts3d[7].x, pts3d[7].y, pts3d[7].z);
 	glVertex3f(pts3d[8].x, pts3d[8].y, pts3d[8].z);
+
+	glColor3f(0.0, 1.0, 0.0);
+	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
+	glVertex3f(pts3d[8].x, pts3d[8].y, pts3d[8].z);
 	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
 
+	/*
 	glColor3f(0.0, 0.0, 1.0);
 	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
 	glVertex3f(pts3d[8].x, pts3d[8].y, pts3d[8].z);
 	glVertex3f(pts3d[9].x, pts3d[9].y, pts3d[9].z);
 	glVertex3f(pts3d[2].x, pts3d[2].y, pts3d[2].z);
-
+	*/
 	glEnd();
 	}
 }
@@ -232,12 +243,13 @@ void GLWidget3D::reconstruct() {
 	}
 
 	// カメラキャリブレーション
-	cv::Mat cameraMatrix = cv::Mat::eye(3, 3, CV_64F);
+	cv::Matx33d cameraMatrix(1, 0, 0, 0, 1, 0, 0, 0, 1);
 	cv::Mat distCoeffs = cv::Mat::zeros(1, 8, CV_64F);
 	std::vector<cv::Mat> rvecs;
 	std::vector<cv::Mat> tvecs;
 	cv::calibrateCamera(objectPoints, pts, img[0].size(), cameraMatrix, distCoeffs, rvecs, tvecs);
 
+	/*
 	cv::Mat P[2];
 	cv::Mat extrinsicMat[2];
 	for (int i = 0; i < 2; ++i) {
@@ -263,7 +275,7 @@ void GLWidget3D::reconstruct() {
 		cv::Point2f pt(x2.at<double>(0, 0) / x2.at<double>(2, 0), x2.at<double>(1, 0) / x2.at<double>(2, 0));
 		std::cout << pt << " <-> " << pts[1][j] << std::endl;
 	}
-
+	*/
 
 
 
@@ -353,10 +365,30 @@ void GLWidget3D::reconstruct() {
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
 	//cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
-	cv::Mat F = cv::findFundamentalMat(pts[0], pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
+	cv::Matx33d F = cv::findFundamentalMat(pts[0], pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
 	std::cout << "F:\n" << F << std::endl;
 
-	cv::Mat E = cameraMatrix.t() * F * cameraMatrix;
+	cv::Matx33d E = cameraMatrix.t() * F * cameraMatrix;
+
+
+
+	SVD svd(E);
+	Matx33d W(0,-1,0,   //HZ 9.13
+		  1,0,0,
+		0,0,1);
+	Matx33d Winv(0,1,0,
+	     -1,0,0,
+		 0,0,1);
+	Mat_<double> R = svd.u * Mat(W) * svd.vt; //HZ 9.19
+	Mat_<double> t = svd.u.col(2); //u3
+	Matx34d P = Matx34d(1, 0, 0, 0,
+		                0, 1, 0, 0,
+						0, 0, 1, 0);
+	Matx34d P1 = Matx34d(R(0,0),    R(0,1), R(0,2), t(0),
+		     R(1,0),    R(1,1), R(1,2), t(1),
+			 R(2,0),    R(2,1), R(2,2), t(2));
+
+
 
 
 	// epipoler lineを描画
@@ -383,10 +415,10 @@ void GLWidget3D::reconstruct() {
 		cv::imwrite(filename, img[i]);
 	}
 
-	reconstruction.computeProjectionMat(E, P[0], P[1]);
+	//reconstruction.computeProjectionMat(E, P[0], P[1]);
 
 
-	double avg_error = reconstruction.unprojectPoints(cameraMatrix, P[0], P[1], pts[0], pts[1], pts3d);
+	double avg_error = reconstruction.unprojectPoints(cameraMatrix, P, P1, pts[0], pts[1], pts3d);
 	printf("avg error: %lf\n", avg_error);	
 
 }

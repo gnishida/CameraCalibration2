@@ -3,6 +3,8 @@
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
 
+using namespace cv;
+
 class Reconstruction {
 public:
 	Reconstruction();
@@ -11,8 +13,8 @@ public:
 	cv::Mat computeEpipole(cv::Mat& F, int whichImage);
 	void computeProjectionMat(cv::Mat& E, cv::Mat& P1, cv::Mat& P2);
 
-	double unprojectPoints(cv::Mat& cameraMatrix, cv::Mat& P1, cv::Mat& P2, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3f>& pts3d);
-	cv::Mat triangulate(cv::Point2f& pt1, cv::Mat& P1, cv::Point2f& pt2, cv::Mat& P2);
-	cv::Mat iterativeTriangulation(cv::Point2f& pt1, cv::Mat& P1, cv::Point2f& pt2, cv::Mat& P2);
+	double unprojectPoints(cv::Matx33d& cameraMatrix, const cv::Matx34d& P1, const cv::Matx34d& P2, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d);
+	Matx31d triangulate(Point3d u, Matx34d P, Point3d u1, Matx34d P1);
+	Matx41d iterativeTriangulation(cv::Point3d u, Matx34d P, cv::Point3d u1, Matx34d P1);
 };
 

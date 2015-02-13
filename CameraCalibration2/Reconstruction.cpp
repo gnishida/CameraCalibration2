@@ -90,116 +90,101 @@ void Reconstruction::computeProjectionMat(cv::Mat& E, cv::Mat& P1, cv::Mat& P2) 
 	*/
 }
 
-double Reconstruction::unprojectPoints(cv::Mat& cameraMatrix, cv::Mat& P1, cv::Mat& P2, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3f>& pts3d) {
+double Reconstruction::unprojectPoints(cv::Matx33d& cameraMatrix, const cv::Matx34d& P, const cv::Matx34d& P1, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d) {
 	pts3d.clear();
 	double error = 0.0;
-	cv::Mat Kinv = cameraMatrix.inv();
+	std::cout << cameraMatrix << std::endl;
+	cv::Matx33d Kinv = cameraMatrix.inv();
+	std::cout << Kinv << std::endl;
+
 
 	for (int i = 0; i < pts1.size(); ++i) {
-		cv::Mat L(4, 3, CV_64F);
-		cv::Mat b(4, 1, CV_64F);
+		Point3d u(pts1[i].x, pts1[i].y, 1.0);
+		Matx31d um = Kinv * Matx31d(u);
+		u.x = um(0); u.y = um(1); u.z = um(2);
+		
+		Point3d u1(pts2[i].x, pts2[i].y, 1.0);
+		Matx31d um1 = Kinv * Matx31d(u1);
+		u1.x = um1(0); u1.y = um1(1); u1.z = um1(2);
 
-		cv::Mat p1 = (cv::Mat_<double>(3, 1) << pts1[i].x, pts1[i].y, 1.0);
-		cv::Mat p2 = (cv::Mat_<double>(3, 1) << pts2[i].x, pts2[i].y, 1.0);
-
-		cv::Mat p1b = Kinv * p1;
-		cv::Mat p2b = Kinv * p2;
-
-		std::cout << "P1:\n" << P1 << std::endl;
-		std::cout << "p1b:\n" << p1b << std::endl;
-		std::cout << "P2:\n" << P2 << std::endl;
-		std::cout << "p2b:\n" << p2b << std::endl;
-
-
-		//cv::Mat X = iterativeTriangulation(cv::Point2f(p1.at<double>(0, 0), p1.at<double>(1, 0)), P1, cv::Point2f(p2.at<double>(0, 0), p2.at<double>(1, 0)), P2);
-		cv::Mat X = triangulate(cv::Point2f(p1b.at<double>(0, 0), p1b.at<double>(1, 0)), P1, cv::Point2f(p2b.at<double>(0, 0), p2b.at<double>(1, 0)), P2);
+		Matx41d X = iterativeTriangulation(u, P, u1, P1);
 
 		std::cout << "X:\n" << X << std::endl;
-		cv::Point3f p = cv::Point3f(X.at<double>(0, 0), X.at<double>(1, 0), X.at<double>(2, 0));
+		cv::Point3d p = cv::Point3d(X(0), X(1), X(2));
 		pts3d.push_back(p);
 		std::cout << "point:" << p << std::endl;
-
+		
 		// reprojection errorを計算する
-		cv::Mat pMat(4, 1, CV_64F);
-		pMat.at<double>(0, 0) = p.x;
-		pMat.at<double>(1, 0) = p.y;
-		pMat.at<double>(2, 0) = p.z;
-		pMat.at<double>(3, 0) = 1.0;
+		cv::Matx41d pMat(p.x, p.y, p.z, 1.0);
 
-		cv::Mat projected_pt = cameraMatrix * P1 * pMat;
-		std::cout << "projected_pt:\n" << projected_pt << std::endl;
+		cv::Matx31d projected_pt = P * pMat;
 		cv::Point2f projected_point;
-		projected_point.x = projected_pt.at<double>(0, 0) / projected_pt.at<double>(2, 0);
-		projected_point.y = projected_pt.at<double>(1, 0) / projected_pt.at<double>(2, 0);
-		std::cout << "projected point1: " << projected_point << " (observed: " << pts1[i] << ")" << std::endl;
+		projected_point.x = projected_pt(0, 0) / projected_pt(2, 0);
+		projected_point.y = projected_pt(1, 0) / projected_pt(2, 0);
+		std::cout << "projected point1: " << projected_point << " (observed: " << um << ")" << std::endl;
 		error += cv::norm(pts1[i] - projected_point);
 		
-		projected_pt = P2 * pMat;
-		projected_point.x = projected_pt.at<double>(0, 0) / projected_pt.at<double>(2, 0);
-		projected_point.y = projected_pt.at<double>(1, 0) / projected_pt.at<double>(2, 0);
-		std::cout << "projected point2: " << projected_point << " (observed: " << pts2[i] << ")" << std::endl;
+		projected_pt = P1 * pMat;
+		projected_point.x = projected_pt(0, 0) / projected_pt(2, 0);
+		projected_point.y = projected_pt(1, 0) / projected_pt(2, 0);
+		std::cout << "projected point2: " << projected_point << " (observed: " << um1 << ")" << std::endl;
 		error += cv::norm(pts2[i] - projected_point);
 	}
 
 	return error;
 }
 
-cv::Mat Reconstruction::triangulate(cv::Point2f& pt1, cv::Mat& P1, cv::Point2f& pt2, cv::Mat& P2) {
-	cv::Mat A = (cv::Mat_<double>(4, 3) << pt1.x * P1.at<double>(2, 0) - P1.at<double>(0, 0), pt1.x * P1.at<double>(2, 1) - P1.at<double>(0, 1), pt1.x * P1.at<double>(2, 2) - P1.at<double>(0, 2),
-											pt1.y * P1.at<double>(2, 0) - P1.at<double>(1, 0), pt1.y * P1.at<double>(2, 1) - P1.at<double>(1, 1), pt1.y * P1.at<double>(2, 2) - P1.at<double>(1, 2),
-											pt2.x * P2.at<double>(2, 0) - P2.at<double>(0, 0), pt2.x * P2.at<double>(2, 1) - P2.at<double>(0, 1), pt2.x * P2.at<double>(2, 2) - P2.at<double>(0, 2),
-											pt2.y * P2.at<double>(2, 0) - P2.at<double>(1, 0), pt2.y * P2.at<double>(2, 1) - P2.at<double>(1, 1), pt2.y * P2.at<double>(2, 2) - P2.at<double>(1, 2));
+Matx31d Reconstruction::triangulate(cv::Point3d u, Matx34d P, Point3d u1, Matx34d P1) {
+    Matx43d A(u.x*P(2,0)-P(0,0),    u.x*P(2,1)-P(0,1),      u.x*P(2,2)-P(0,2),
+          u.y*P(2,0)-P(1,0),    u.y*P(2,1)-P(1,1),      u.y*P(2,2)-P(1,2),
+          u1.x*P1(2,0)-P1(0,0), u1.x*P1(2,1)-P1(0,1),   u1.x*P1(2,2)-P1(0,2),
+          u1.y*P1(2,0)-P1(1,0), u1.y*P1(2,1)-P1(1,1),   u1.y*P1(2,2)-P1(1,2)
+              );
+    Mat_<double> B = (Mat_<double>(4,1) <<    -(u.x*P(2,3)    -P(0,3)),
+                      -(u.y*P(2,3)  -P(1,3)),
+                      -(u1.x*P1(2,3)    -P1(0,3)),
+                      -(u1.y*P1(2,3)    -P1(1,3)));
+ 
+    Matx31d X;
+    solve(A,B,X,DECOMP_SVD);
+	std::cout << X << std::endl;
 
-	cv::Mat b = (cv::Mat_<double>(4, 1) << -(pt1.x * P1.at<double>(2, 3) - P1.at<double>(0, 3)),
-											-(pt1.y * P1.at<double>(2, 3) - P1.at<double>(1, 3)),
-											-(pt2.x * P1.at<double>(2, 3) - P2.at<double>(0, 3)),
-											-(pt2.y * P1.at<double>(2, 3) - P2.at<double>(1, 3)));
- 
-    cv::Mat X;
-    cv::solve(A, b, X, cv::DECOMP_SVD);
- 
     return X;
 }
 
 
 
-cv::Mat Reconstruction::iterativeTriangulation(cv::Point2f& pt1, cv::Mat& P1, cv::Point2f& pt2, cv::Mat& P2) {
-	double wi1 = 1, wi2 = 1;
-    cv::Mat X(4, 1, CV_64F);
-	for (int i=0; i<10; i++) { //Hartley suggests 10 iterations at most
-		cv::Mat X_ = triangulate(pt1, P1, pt2, P2);
-		X.at<double>(0, 0) = X_.at<double>(0, 0);
-		X.at<double>(1, 0) = X_.at<double>(1, 0);
-		X.at<double>(2, 0) = X_.at<double>(2, 0);
-		X.at<double>(3, 0) = 1.0;
+cv::Matx41d Reconstruction::iterativeTriangulation(cv::Point3d u, Matx34d P, cv::Point3d u1, Matx34d P1) {
+   double wi = 1, wi1 = 1;
+    Matx41d X(4,1);
+    for (int i=0; i<10; i++) { //Hartley suggests 10 iterations at most
+        Matx31d X_ = triangulate(u,P,u1,P1);
+        X(0) = X_(0); X(1) = X_(1); X(2) = X_(2); X(3) = 1.0;
          
         //recalculate weights
-        double p2x1 = cv::Mat_<double>(cv::Mat_<double>(P1).row(2)*X)(0);
-        double p2x2 = cv::Mat_<double>(cv::Mat_<double>(P2).row(2)*X)(0);
+        double p2x = Mat_<double>(P.row(2)*X)(0);
+        double p2x1 = Mat_<double>(P1.row(2)*X)(0);
          
         //breaking point
-        if(fabsf(wi1 - p2x1) <= 1e-7 && fabsf(wi2 - p2x2) <= 1e-7) break;
+        if(fabsf(wi - p2x) <= 1e-7 && fabsf(wi1 - p2x1) <= 1e-7) break;
          
+        wi = p2x;
         wi1 = p2x1;
-        wi2 = p2x2;
          
         //reweight equations and solve
-        cv::Mat A = (cv::Mat_<double>(4, 3) <<
-					(pt1.x*P1.at<double>(2,0)-P1.at<double>(0,0))/wi1, (pt1.x*P1.at<double>(2,1)-P1.at<double>(0,1))/wi1, (pt1.x*P1.at<double>(2,2)-P1.at<double>(0,2))/wi1,
-					(pt1.y*P1.at<double>(2,0)-P1.at<double>(1,0))/wi1, (pt1.y*P1.at<double>(2,1)-P1.at<double>(1,1))/wi1, (pt1.y*P1.at<double>(2,2)-P1.at<double>(1,2))/wi1,
-					(pt2.x*P2.at<double>(2,0)-P2.at<double>(0,0))/wi2, (pt2.x*P2.at<double>(2,1)-P2.at<double>(0,1))/wi2, (pt2.x*P2.at<double>(2,2)-P2.at<double>(0,2))/wi2,
-					(pt2.y*P2.at<double>(2,0)-P2.at<double>(1,0))/wi2, (pt2.y*P2.at<double>(2,1)-P2.at<double>(1,1))/wi2, (pt2.y*P2.at<double>(2,2)-P2.at<double>(1,2))/wi2);
-        cv::Mat B = (cv::Mat_<double>(4,1) <<
-						-(pt1.x*P1.at<double>(2,3) - P1.at<double>(0,3)) / wi2,
-                        -(pt1.y*P1.at<double>(2,3) - P1.at<double>(1,3)) / wi1,
-                        -(pt2.x*P2.at<double>(2,3) - P2.at<double>(0,3)) / wi2,
-                        -(pt2.y*P2.at<double>(2,3) - P2.at<double>(1,3)) / wi2);
+        Matx43d A((u.x*P(2,0)-P(0,0))/wi,       (u.x*P(2,1)-P(0,1))/wi,         (u.x*P(2,2)-P(0,2))/wi,    
+                  (u.y*P(2,0)-P(1,0))/wi,       (u.y*P(2,1)-P(1,1))/wi,         (u.y*P(2,2)-P(1,2))/wi,    
+                  (u1.x*P1(2,0)-P1(0,0))/wi1,   (u1.x*P1(2,1)-P1(0,1))/wi1,     (u1.x*P1(2,2)-P1(0,2))/wi1,
+                  (u1.y*P1(2,0)-P1(1,0))/wi1,   (u1.y*P1(2,1)-P1(1,1))/wi1,     (u1.y*P1(2,2)-P1(1,2))/wi1
+                  );
+        Mat_<double> B = (Mat_<double>(4,1) <<    -(u.x*P(2,3)    -P(0,3))/wi,
+                          -(u.y*P(2,3)  -P(1,3))/wi,
+                          -(u1.x*P1(2,3)    -P1(0,3))/wi1,
+                          -(u1.y*P1(2,3)    -P1(1,3))/wi1
+                          );
          
-        cv::solve(A,B,X_, cv::DECOMP_SVD);
-        X.at<double>(0, 0) = X_.at<double>(0, 0);
-		X.at<double>(1, 0) = X_.at<double>(1, 0);
-		X.at<double>(2, 0) = X_.at<double>(2, 0);
-		X.at<double>(3, 0) = 1.0;
+        solve(A,B,X_,DECOMP_SVD);
+        X(0) = X_(0); X(1) = X_(1); X(2) = X_(2); X(3) = 1.0;
     }
     return X;
 }

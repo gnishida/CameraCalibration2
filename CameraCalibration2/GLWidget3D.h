@@ -21,7 +21,7 @@ private:
 
 	cv::Mat P[2];
 	std::vector<std::vector<cv::Point2f> > pts;
-	std::vector<cv::Point3f> pts3d;
+	std::vector<cv::Point3d> pts3d;
 
 public:
 	GLWidget3D(MainWindow* mainWin);
