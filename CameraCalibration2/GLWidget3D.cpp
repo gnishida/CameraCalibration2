@@ -125,35 +125,17 @@ void GLWidget3D::drawScene() {
 	glEnd();
 
 	if (pts3d.size() > 0) {
-	glColor3f(1.0, 1.0, 1.0);
-	glBegin(GL_TRIANGLES);
-	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
-	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
-	glVertex3f(pts3d[2].x, pts3d[2].y, pts3d[2].z);
+		glBegin(GL_TRIANGLES);
+		drawTriangle(0, 1, 2);
+		drawTriangle(0, 2, 3);
+		drawTriangle(1, 4, 5);
+		drawTriangle(1, 5, 2);
 
-	glColor3f(1.0, 0.0, 0.0);
-	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
-	glVertex3f(pts3d[2].x, pts3d[2].y, pts3d[2].z);
-	glVertex3f(pts3d[1].x, pts3d[1].y, pts3d[1].z);
-
-	glColor3f(1.0, 1.0, 0.0);
-	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
-	glVertex3f(pts3d[7].x, pts3d[7].y, pts3d[7].z);
-	glVertex3f(pts3d[8].x, pts3d[8].y, pts3d[8].z);
-
-	glColor3f(0.0, 1.0, 0.0);
-	glVertex3f(pts3d[0].x, pts3d[0].y, pts3d[0].z);
-	glVertex3f(pts3d[8].x, pts3d[8].y, pts3d[8].z);
-	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
-
-	/*
-	glColor3f(0.0, 0.0, 1.0);
-	glVertex3f(pts3d[3].x, pts3d[3].y, pts3d[3].z);
-	glVertex3f(pts3d[8].x, pts3d[8].y, pts3d[8].z);
-	glVertex3f(pts3d[9].x, pts3d[9].y, pts3d[9].z);
-	glVertex3f(pts3d[2].x, pts3d[2].y, pts3d[2].z);
-	*/
-	glEnd();
+		drawTriangle(6, 7, 8);
+		drawTriangle(7, 10, 8);
+		drawTriangle(8, 10, 9);
+		drawTriangle(9, 10, 11);
+		glEnd();
 	}
 }
 
@@ -175,6 +157,17 @@ QVector2D GLWidget3D::mouseTo2D(int x,int y) {
 	gluUnProject(x, (float)viewport[3] - y, z, modelview, projection, viewport, &posX, &posY, &posZ);
 
 	return QVector2D(posX, posY);
+}
+
+void GLWidget3D::drawTriangle(int index1, int index2, int index3) {
+	float r = (float)(index1 * 20) / 255.0;
+	float g = (float)(index2 * 40) / 255.0;
+	float b = (float)(index3 * 80) / 255.0;
+	glColor3f(r, g, b);
+
+	glVertex3f(pts3d[index1].x, pts3d[index1].y, pts3d[index1].z);
+	glVertex3f(pts3d[index2].x, pts3d[index2].y, pts3d[index2].z);
+	glVertex3f(pts3d[index3].x, pts3d[index3].y, pts3d[index3].z);
 }
 
 void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& color) {
@@ -209,51 +202,45 @@ void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& co
 	glEnd();
 }
 
-void GLWidget3D::reconstruct() {
-	std::vector<Mat> img(2);
-	img[0] = cv::imread("images/calib1.jpg");
-	img[1] = cv::imread("images/calib2.jpg");
-	//img[2] = cv::imread("images/calib3.jpg");
-
-	cv::Matx33d cameraMatrix(1, 0, 0, 0, 1, 0, 0, 0, 1);
-	cv::Mat distCoeffs = cv::Mat::zeros(1, 8, CV_64F);
-	std::vector<cv::Mat> rvecs;
-	std::vector<cv::Mat> tvecs;
-
-	calibrateCamera(img, cameraMatrix, distCoeffs, rvecs, tvecs);
-
-	std::cout << "K:\n" << cameraMatrix << std::endl;
-
-
-
-	img[0] = cv::imread("images/image1.jpg");
-	img[1] = cv::imread("images/image2.jpg");
+void GLWidget3D::reconstruct(std::vector<cv::Mat>& img) {
+	Mat_<double> K;
+	cv::FileStorage fs;
+	fs.open("camera_calibration.yml", cv::FileStorage::READ);
+	fs["camera_matrix"] >> K;
+	std::cout << "K:\n" << K << std::endl;
 
 	// とりあえず、対応点を手動で設定
 	pts.resize(2);
 	{
 		pts[0].clear();
 		pts[1].clear();
-		pts[0].push_back(cv::Point2f(95, 132));
-		pts[1].push_back(cv::Point2f(110, 167));
-		pts[0].push_back(cv::Point2f(234, 51));
-		pts[1].push_back(cv::Point2f(217, 78));
-		pts[0].push_back(cv::Point2f(467, 130));
-		pts[1].push_back(cv::Point2f(467, 135));
-		pts[0].push_back(cv::Point2f(328, 249));
-		pts[1].push_back(cv::Point2f(388, 251));
-		pts[0].push_back(cv::Point2f(104, 160));
-		pts[1].push_back(cv::Point2f(117, 194));
-		pts[0].push_back(cv::Point2f(333, 280));
-		pts[1].push_back(cv::Point2f(389, 280));
-		pts[0].push_back(cv::Point2f(469, 158));
-		pts[1].push_back(cv::Point2f(468, 159));
-		pts[0].push_back(cv::Point2f(129, 220));
-		pts[1].push_back(cv::Point2f(137, 251));
-		pts[0].push_back(cv::Point2f(341, 346));
-		pts[1].push_back(cv::Point2f(387, 340));
-		pts[0].push_back(cv::Point2f(462, 229));
-		pts[1].push_back(cv::Point2f(458, 226));
+
+		pts[0].push_back(cv::Point2f(590, 239));
+		pts[1].push_back(cv::Point2f(636, 279));
+		pts[0].push_back(cv::Point2f(615, 568));
+		pts[1].push_back(cv::Point2f(647, 611));
+		pts[0].push_back(cv::Point2f(1017, 662));
+		pts[1].push_back(cv::Point2f(1082, 686));
+		pts[0].push_back(cv::Point2f(1027, 297));
+		pts[1].push_back(cv::Point2f(1105, 329));
+		pts[0].push_back(cv::Point2f(291, 653));
+		pts[1].push_back(cv::Point2f(279, 714));
+		pts[0].push_back(cv::Point2f(1384, 936));
+		pts[1].push_back(cv::Point2f(1457, 927));
+		pts[0].push_back(cv::Point2f(720, 604));
+		pts[1].push_back(cv::Point2f(810, 639));
+		pts[0].push_back(cv::Point2f(666, 659));
+		pts[1].push_back(cv::Point2f(768, 697));
+		pts[0].push_back(cv::Point2f(708, 651));
+		pts[1].push_back(cv::Point2f(810, 686));
+		pts[0].push_back(cv::Point2f(802, 757));
+		pts[1].push_back(cv::Point2f(802, 756));
+		pts[0].push_back(cv::Point2f(649, 739));
+		pts[1].push_back(cv::Point2f(753, 778));
+		pts[0].push_back(cv::Point2f(696, 794));
+		pts[1].push_back(cv::Point2f(777, 830));
+		pts[0].push_back(cv::Point2f(709, 769));
+		pts[1].push_back(cv::Point2f(613, 727));
 	}
 	
 	// Y座標を反転させる
@@ -264,11 +251,11 @@ void GLWidget3D::reconstruct() {
 	}
 
 	// 座標の正規化
-	cv::Matx33d Kinv = cameraMatrix.inv();
+	cv::Mat_<double> Kinv = K.inv();
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < pts[i].size(); ++j) {
-			pts[i][j].x = (pts[i][j].x - cameraMatrix(0, 2)) / cameraMatrix(0, 0);
-			pts[i][j].y = (pts[i][j].y - cameraMatrix(1, 2)) / cameraMatrix(1, 1);
+			pts[i][j].x = (pts[i][j].x - K(0, 2)) / K(0, 0);
+			pts[i][j].y = (pts[i][j].y - K(1, 2)) / K(1, 1);
 		}
 	}
 
@@ -288,18 +275,46 @@ void GLWidget3D::reconstruct() {
 
 	std::cout << "P:\n" << P1 << std::endl;
 
-	double avg_error = reconstruction.unprojectPoints(cameraMatrix, P, P1, pts[0], pts[1], pts3d);
+	double avg_error = reconstruction.unprojectPoints(K, P, P1, pts[0], pts[1], pts3d);
 	printf("avg error: %lf\n", avg_error);	
+
+	// compute bounding box
+	double min_x = std::numeric_limits<float>::max();
+	double min_y = std::numeric_limits<float>::max();
+	double min_z = std::numeric_limits<float>::max();
+	double max_x = -std::numeric_limits<float>::max();
+	double max_y = -std::numeric_limits<float>::max();
+	double max_z = -std::numeric_limits<float>::max();
+	for (int i = 0; i < pts3d.size(); ++i) {
+		min_x = std::min(min_x, pts3d[i].x);
+		min_y = std::min(min_y, pts3d[i].y);
+		min_z = std::min(min_z, pts3d[i].z);
+		max_x = std::max(max_x, pts3d[i].x);
+		max_y = std::max(max_y, pts3d[i].y);
+		max_z = std::max(max_z, pts3d[i].z);
+	}
+
+	// translate to the origin
+	for (int i = 0; i < pts3d.size(); ++i) {
+		pts3d[i].x -= (min_x + max_x) * 0.5;
+		pts3d[i].y -= (min_y + max_y) * 0.5;
+		pts3d[i].z -= (min_z + max_z) * 0.5;
+	}
 
 	float scale_factor = 1000.0f;
 	for (int i = 0; i < pts3d.size(); ++i) {
-		pts3d[i].x *= scale_factor;
+		pts3d[i].x *= -scale_factor;
 		pts3d[i].y *= -scale_factor;
 		pts3d[i].z *= scale_factor;
 	}
 }
 
-void GLWidget3D::calibrateCamera(std::vector<cv::Mat>& img, Matx33d& cameraMatrix, Mat& distCoeffs, std::vector<Mat>& rvecs, std::vector<Mat>& tvecs) {
+void GLWidget3D::calibrateCamera(std::vector<cv::Mat>& img) {
+	Mat_<double> K = Mat_<double>::eye(3, 3);
+	Mat_<double> distCoeffs = Mat_<double>::zeros(1, 8);
+	std::vector<Mat> rvecs;
+	std::vector<Mat> tvecs;
+
 	std::vector<std::vector<cv::Point3f> > objectPoints;
 	objectPoints.resize(img.size());
 
@@ -331,6 +346,10 @@ void GLWidget3D::calibrateCamera(std::vector<cv::Mat>& img, Matx33d& cameraMatri
 		}
 	}
 
-	cv::calibrateCamera(objectPoints, pts, img[0].size(), cameraMatrix, distCoeffs, rvecs, tvecs);
+	cv::calibrateCamera(objectPoints, pts, img[0].size(), K, distCoeffs, rvecs, tvecs, CV_CALIB_ZERO_TANGENT_DIST | CV_CALIB_FIX_K2 | CV_CALIB_FIX_K3 | CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5 | CV_CALIB_FIX_K6);
 
+	cv::FileStorage fs;
+	fs.open("camera_calibration.yml", cv::FileStorage::WRITE);
+	fs << "camera_matrix" << K;
+	fs << "distortion_coefficients" << distCoeffs;
 }

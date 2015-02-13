@@ -27,7 +27,8 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionFileOpen"/>
+    <addaction name="actionCalibration"/>
+    <addaction name="actionReconstruction"/>
     <addaction name="separator"/>
     <addaction name="actionExit"/>
    </widget>
@@ -47,9 +48,14 @@
     <string>Exit</string>
    </property>
   </action>
-  <action name="actionFileOpen">
+  <action name="actionReconstruction">
    <property name="text">
-    <string>Open</string>
+    <string>3D Reconstruction</string>
+   </property>
+  </action>
+  <action name="actionCalibration">
+   <property name="text">
+    <string>Calibration</string>
    </property>
   </action>
  </widget>

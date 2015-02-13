@@ -17,7 +17,8 @@ public:
 	MainWindow(QWidget *parent = 0, Qt::WFlags flags = 0);
 
 public slots:
-	void onFileOpen();
+	void onCalibration();
+	void onReconstruction();
 };
 
 #endif // MAINWINDOW_H

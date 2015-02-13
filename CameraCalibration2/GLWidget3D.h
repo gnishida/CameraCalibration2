@@ -28,9 +28,10 @@ public:
 	GLWidget3D(MainWindow* mainWin);
 	void drawScene();
 	QVector2D mouseTo2D(int x,int y);
+	void drawTriangle(int index1, int index2, int index3);
 	void drawSphere(float x, float y, float z, float r, const QColor& color);
-	void reconstruct();
-	void calibrateCamera(std::vector<cv::Mat>& img, Matx33d& cameraMatrix, Mat& distCoeffs, std::vector<Mat>& rvecs, std::vector<Mat>& tvecs);
+	void reconstruct(std::vector<cv::Mat>& img);
+	void calibrateCamera(std::vector<cv::Mat>& img);
 
 protected:
 	void initializeGL();

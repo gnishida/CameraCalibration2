@@ -33,8 +33,8 @@ void Reconstruction::computeProjectionMat(Matx33d E, Matx34d& P1, Matx34d& P2) {
 	SVD svd(E);
 	Matx33d W(0, -1, 0, 1, 0, 0, 0, 0, 1);
 	Matx33d Winv(0, 1, 0, -1, 0, 0, 0, 0, 1);
-	Mat_<double> R = svd.u * Mat(W) * svd.vt;
-	Mat_<double> t = svd.u.col(2);
+	Mat_<double> R = svd.u * Mat(W.t()) * svd.vt;
+	Mat_<double> t = -svd.u.col(2);
 	P1 = Matx34d(1, 0, 0, 0,
 	             0, 1, 0, 0,
 				 0, 0, 1, 0);
@@ -43,21 +43,21 @@ void Reconstruction::computeProjectionMat(Matx33d E, Matx34d& P1, Matx34d& P2) {
 				 R(2,0), R(2,1), R(2,2), t(2));
 }
 
-double Reconstruction::unprojectPoints(cv::Matx33d& cameraMatrix, const cv::Matx34d& P, const cv::Matx34d& P1, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d) {
+double Reconstruction::unprojectPoints(cv::Mat_<double>& cameraMatrix, const cv::Matx34d& P, const cv::Matx34d& P1, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d) {
 	pts3d.clear();
 	double error = 0.0;
 	std::cout << cameraMatrix << std::endl;
-	cv::Matx33d Kinv = cameraMatrix.inv();
+	cv::Mat_<double> Kinv = cameraMatrix.inv();
 	std::cout << Kinv << std::endl;
 
 
 	for (int i = 0; i < pts1.size(); ++i) {
 		Point3d u(pts1[i].x, pts1[i].y, 1.0);
-		Matx31d um = Kinv * Matx31d(u);
+		Mat_<double> um = Kinv * Mat_<double>(u);
 		//u.x = um(0); u.y = um(1); u.z = um(2);
 		
 		Point3d u1(pts2[i].x, pts2[i].y, 1.0);
-		Matx31d um1 = Kinv * Matx31d(u1);
+		Mat_<double> um1 = Kinv * Mat_<double>(u1);
 		//u1.x = um1(0); u1.y = um1(1); u1.z = um1(2);
 
 		Matx41d X = iterativeTriangulation(u, P, u1, P1);

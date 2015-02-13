@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'MainWindow.ui'
 **
-** Created: Wed Feb 11 21:56:33 2015
+** Created: Fri Feb 13 11:01:20 2015
 **      by: Qt User Interface Compiler version 4.8.1
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -28,7 +28,8 @@ class Ui_MainWindowClass
 {
 public:
     QAction *actionExit;
-    QAction *actionFileOpen;
+    QAction *actionReconstruction;
+    QAction *actionCalibration;
     QWidget *centralWidget;
     QMenuBar *menuBar;
     QMenu *menuFile;
@@ -42,8 +43,10 @@ public:
         MainWindowClass->resize(600, 400);
         actionExit = new QAction(MainWindowClass);
         actionExit->setObjectName(QString::fromUtf8("actionExit"));
-        actionFileOpen = new QAction(MainWindowClass);
-        actionFileOpen->setObjectName(QString::fromUtf8("actionFileOpen"));
+        actionReconstruction = new QAction(MainWindowClass);
+        actionReconstruction->setObjectName(QString::fromUtf8("actionReconstruction"));
+        actionCalibration = new QAction(MainWindowClass);
+        actionCalibration->setObjectName(QString::fromUtf8("actionCalibration"));
         centralWidget = new QWidget(MainWindowClass);
         centralWidget->setObjectName(QString::fromUtf8("centralWidget"));
         MainWindowClass->setCentralWidget(centralWidget);
@@ -61,7 +64,8 @@ public:
         MainWindowClass->setStatusBar(statusBar);
 
         menuBar->addAction(menuFile->menuAction());
-        menuFile->addAction(actionFileOpen);
+        menuFile->addAction(actionCalibration);
+        menuFile->addAction(actionReconstruction);
         menuFile->addSeparator();
         menuFile->addAction(actionExit);
 
@@ -74,7 +78,8 @@ public:
     {
         MainWindowClass->setWindowTitle(QApplication::translate("MainWindowClass", "MainWindow", 0, QApplication::UnicodeUTF8));
         actionExit->setText(QApplication::translate("MainWindowClass", "Exit", 0, QApplication::UnicodeUTF8));
-        actionFileOpen->setText(QApplication::translate("MainWindowClass", "Open", 0, QApplication::UnicodeUTF8));
+        actionReconstruction->setText(QApplication::translate("MainWindowClass", "3D Reconstruction", 0, QApplication::UnicodeUTF8));
+        actionCalibration->setText(QApplication::translate("MainWindowClass", "Calibration", 0, QApplication::UnicodeUTF8));
         menuFile->setTitle(QApplication::translate("MainWindowClass", "File", 0, QApplication::UnicodeUTF8));
     } // retranslateUi
 
