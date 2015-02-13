@@ -365,11 +365,10 @@ void GLWidget3D::reconstruct() {
 
 
 	Matx34d P, P1;
-	reconstruction.computeProjectionMat(E, P, P1);
+	Mat_<double> R1, R2, T1, T2;
+	reconstruction.computeProjectionMat(E, R1, T1, R2, T2);
 
-	std::cout << "P:\n" << P1 << std::endl;
-
-	double avg_error = reconstruction.unprojectPoints(K, P, P1, normalized_pts[0], normalized_pts[1], pts3d);
+	double avg_error = reconstruction.unprojectPoints(img[0].size(), K, R1, T1, R2, T2, pts[0], pts[1], pts3d);
 	printf("avg error: %lf\n", avg_error);	
 
 	// compute bounding box

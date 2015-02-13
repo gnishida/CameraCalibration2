@@ -29,36 +29,72 @@ cv::Mat Reconstruction::computeEpipole(cv::Mat& F, int whichImage) {
 	return e;
 }
 
-void Reconstruction::computeProjectionMat(Matx33d E, Matx34d& P1, Matx34d& P2) {
+void Reconstruction::computeProjectionMat(Matx33d E, Mat_<double>& R1, Mat_<double>& T1, Mat_<double>& R2, Mat_<double>& T2) {
 	SVD svd(E);
 	Matx33d W(0, -1, 0, 1, 0, 0, 0, 0, 1);
 	Matx33d Winv(0, 1, 0, -1, 0, 0, 0, 0, 1);
-	Mat_<double> R = svd.u * Mat(W.t()) * svd.vt;
-	Mat_<double> t = svd.u.col(2);
-	P1 = Matx34d(1, 0, 0, 0,
-	             0, 1, 0, 0,
-				 0, 0, 1, 0);
-	P2 = Matx34d(R(0,0), R(0,1), R(0,2), t(0),
-				 R(1,0), R(1,1), R(1,2), t(1),
-				 R(2,0), R(2,1), R(2,2), t(2));
+	R1 = svd.u * Mat(W) * svd.vt;
+	R2 = svd.u * Mat(W.t()) * svd.vt;
+	T1 = svd.u.col(2);
+	T2 = -svd.u.col(2);
 }
 
-double Reconstruction::unprojectPoints(cv::Mat_<double>& cameraMatrix, const cv::Matx34d& P, const cv::Matx34d& P1, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d) {
-	pts3d.clear();
-	double error = 0.0;
-	std::cout << cameraMatrix << std::endl;
-	cv::Mat_<double> Kinv = cameraMatrix.inv();
+double Reconstruction::unprojectPoints(Size& size, cv::Mat_<double>& K, const Mat_<double>& R1, const Mat_<double>& T1, const Mat_<double>& R2, const Mat_<double>& T2, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d) {
+	std::cout << K << std::endl;
+	cv::Mat_<double> Kinv = K.inv();
 	std::cout << Kinv << std::endl;
 
+	int numFront = 0;
+	cv::Matx34d P(1, 0, 0, 0, 
+				  0, 1, 0, 0,
+				  0, 0, 1, 0);
+
+	// 第1候補のチェック
+	cv::Matx34d P1(R1(0, 0), R1(0, 1), R1(0, 2), T1(0, 0),
+				  R1(1, 0), R1(1, 1), R1(1, 2), T1(1, 0),
+				  R1(2, 0), R1(2, 1), R1(2, 2), T1(2, 0));	
+	double error = unprojectPoints(size, K, Kinv, P, P1, pts1, pts2, pts3d, numFront);	
+	if (numFront > pts1.size() * 0.5) return error;
+
+	// 第2候補のチェック
+	P1 = Matx34d(R1(0, 0), R1(0, 1), R1(0, 2), T2(0, 0),
+				 R1(1, 0), R1(1, 1), R1(1, 2), T2(1, 0),
+				 R1(2, 0), R1(2, 1), R1(2, 2), T2(2, 0));
+	error = unprojectPoints(size, K, Kinv, P, P1, pts1, pts2, pts3d, numFront);	
+	//if (numFront > pts1.size() * 0.5) return error;
+
+	// 第3候補のチェック
+	P1 = Matx34d(R2(0, 0), R2(0, 1), R2(0, 2), T1(0, 0),
+				 R2(1, 0), R2(1, 1), R2(1, 2), T1(1, 0),
+				 R2(2, 0), R2(2, 1), R2(2, 2), T1(2, 0));
+	error = unprojectPoints(size, K, Kinv, P, P1, pts1, pts2, pts3d, numFront);	
+	//if (numFront > pts1.size() * 0.5) return error;
+	return error;
+
+	// 第4候補のチェック
+	P1 = Matx34d(R2(0, 0), R2(0, 1), R2(0, 2), T2(0, 0),
+				 R2(1, 0), R2(1, 1), R2(1, 2), T2(1, 0),
+				 R2(2, 0), R2(2, 1), R2(2, 2), T2(2, 0));
+	error = unprojectPoints(size, K, Kinv, P, P1, pts1, pts2, pts3d, numFront);	
+	if (numFront > pts1.size() * 0.5) return error;
+
+	return error;
+}
+
+double Reconstruction::unprojectPoints(Size& size, Mat_<double>& K, Mat_<double>& Kinv, const Matx34d& P, const Matx34d& P1, std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d, int& numFront) {
+	pts3d.clear();
+	std::vector<double> error;
+
+	numFront = 0;
 
 	for (int i = 0; i < pts1.size(); ++i) {
 		Point3d u(pts1[i].x, pts1[i].y, 1.0);
 		Mat_<double> um = Kinv * Mat_<double>(u);
-		//u.x = um(0); u.y = um(1); u.z = um(2);
+		u.x = um(0); u.y = um(1); u.z = um(2);
 		
 		Point3d u1(pts2[i].x, pts2[i].y, 1.0);
 		Mat_<double> um1 = Kinv * Mat_<double>(u1);
-		//u1.x = um1(0); u1.y = um1(1); u1.z = um1(2);
+		u1.x = um1(0); u1.y = um1(1); u1.z = um1(2);
 
 		Matx41d X = iterativeTriangulation(u, P, u1, P1);
 
@@ -68,23 +104,24 @@ double Reconstruction::unprojectPoints(cv::Mat_<double>& cameraMatrix, const cv:
 		std::cout << "point:" << p << std::endl;
 		
 		// reprojection errorを計算する
-		cv::Matx41d pMat(p.x, p.y, p.z, 1.0);
+		cv::Mat_<double> pt1_3d_hat = K * Mat_<double>(P) * Mat_<double>(X);
+		std::cout << "projection to image1: " << pt1_3d_hat << std::endl;
+		Point2f pt1_hat(pt1_3d_hat(0, 0) / pt1_3d_hat(2, 0), pt1_3d_hat(1, 0) / pt1_3d_hat(2, 0));
+		std::cout << "projected point1: " << pt1_hat << " (observed: " << pts1[i] << ")" << std::endl;
+		error.push_back(norm(pt1_hat - pts1[i]));
 
-		cv::Matx31d projected_pt = P * pMat;
-		cv::Point2f projected_point;
-		projected_point.x = projected_pt(0, 0) / projected_pt(2, 0);
-		projected_point.y = projected_pt(1, 0) / projected_pt(2, 0);
-		std::cout << "projected point1: " << projected_point << " (observed: " << u << ")" << std::endl;
-		//error += cv::norm(um - projected_point);
-		
-		projected_pt = P1 * pMat;
-		projected_point.x = projected_pt(0, 0) / projected_pt(2, 0);
-		projected_point.y = projected_pt(1, 0) / projected_pt(2, 0);
-		std::cout << "projected point2: " << projected_point << " (observed: " << u1 << ")" << std::endl;
-		//error += cv::norm(um1 - projected_point);
+		cv::Mat_<double> pt2_3d_hat = K * Mat_<double>(P1) * Mat_<double>(X);
+		std::cout << "projection to image1: " << pt2_3d_hat << std::endl;
+		Point2f pt2_hat(pt2_3d_hat(0, 0) / pt2_3d_hat(2, 0), pt2_3d_hat(1, 0) / pt2_3d_hat(2, 0));
+		std::cout << "projected point2: " << pt2_hat << " (observed: " << pts2[i] << ")" << std::endl;
+		error.push_back(norm(pt2_hat - pts1[i]));
+
+		if ((P * X)(2, 0) > 0 && (P1 * X)(2, 0) > 0) {
+			numFront++;
+		}
 	}
 
-	return error;
+	return mean(error)[0];
 }
 
 Matx31d Reconstruction::triangulate(cv::Point3d u, Matx34d P, Point3d u1, Matx34d P1) {
