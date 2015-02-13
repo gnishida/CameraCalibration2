@@ -1,4 +1,5 @@
 ﻿#include <iostream>
+#include <fstream>
 #include "GLWidget3D.h"
 #include "MainWindow.h"
 #include <GL/GLU.h>
@@ -124,18 +125,37 @@ void GLWidget3D::drawScene() {
 	glVertex3f(0, 0, 500);
 	glEnd();
 
+
 	if (pts3d.size() > 0) {
 		glBegin(GL_TRIANGLES);
 		drawTriangle(0, 1, 2);
 		drawTriangle(0, 2, 3);
-		drawTriangle(1, 4, 5);
-		drawTriangle(1, 5, 2);
-
-		drawTriangle(6, 7, 8);
-		drawTriangle(7, 10, 8);
-		drawTriangle(8, 10, 9);
-		drawTriangle(9, 10, 11);
+		drawTriangle(4, 5, 6);
+		drawTriangle(4, 6, 1);
+		drawTriangle(1, 6, 7);
+		drawTriangle(1, 7, 8);
 		glEnd();
+
+
+		/*
+		Subdiv2D subdiv(Rect(0, 0, 2000, 2000));
+		for (int i = 0; i < pts3d.size(); ++i) {
+			subdiv.insert(Point2f(pts[0][i].x, pts[0][i].y));
+		}
+		std::vector<Vec6f> triangleList;
+		subdiv.getTriangleList(triangleList);
+		glBegin(GL_TRIANGLES);
+		for (int i = 0; i < triangleList.size(); ++i) {
+			int edge;
+			int vertex[3];
+			subdiv.locate(Point2f(triangleList[i][0], triangleList[i][1]), edge, vertex[0]);
+			subdiv.locate(Point2f(triangleList[i][2], triangleList[i][3]), edge, vertex[1]);
+			subdiv.locate(Point2f(triangleList[i][4], triangleList[i][5]), edge, vertex[2]);
+		
+			drawTriangle(vertex[0], vertex[1], vertex[2]);
+		}
+		glEnd();
+		*/
 	}
 }
 
@@ -160,13 +180,22 @@ QVector2D GLWidget3D::mouseTo2D(int x,int y) {
 }
 
 void GLWidget3D::drawTriangle(int index1, int index2, int index3) {
-	float r = (float)(index1 * 20) / 255.0;
-	float g = (float)(index2 * 40) / 255.0;
-	float b = (float)(index3 * 80) / 255.0;
-	glColor3f(r, g, b);
-
+	int b = (img[0].at<Vec3b>(pts[0][index1].y, pts[0][index1].x)[0] + img[1].at<Vec3b>(pts[1][index1].y, pts[1][index1].x)[0]) * 0.5;
+	int g = (img[0].at<Vec3b>(pts[0][index1].y, pts[0][index1].x)[1] + img[1].at<Vec3b>(pts[1][index1].y, pts[1][index1].x)[1]) * 0.5;
+	int r = (img[0].at<Vec3b>(pts[0][index1].y, pts[0][index1].x)[2] + img[1].at<Vec3b>(pts[1][index1].y, pts[1][index1].x)[2]) * 0.5;
+	glColor3f((float)r / 255.0, (float)g / 255.0, (float)b / 255.0);
 	glVertex3f(pts3d[index1].x, pts3d[index1].y, pts3d[index1].z);
+
+	b = (img[0].at<Vec3b>(pts[0][index2].y, pts[0][index2].x)[0] + img[1].at<Vec3b>(pts[1][index2].y, pts[1][index2].x)[0]) * 0.5;
+	g = (img[0].at<Vec3b>(pts[0][index2].y, pts[0][index2].x)[1] + img[1].at<Vec3b>(pts[1][index2].y, pts[1][index2].x)[1]) * 0.5;
+	r = (img[0].at<Vec3b>(pts[0][index2].y, pts[0][index2].x)[2] + img[1].at<Vec3b>(pts[1][index2].y, pts[1][index2].x)[2]) * 0.5;
+	glColor3f((float)r / 255.0, (float)g / 255.0, (float)b / 255.0);
 	glVertex3f(pts3d[index2].x, pts3d[index2].y, pts3d[index2].z);
+
+	b = (img[0].at<Vec3b>(pts[0][index3].y, pts[0][index3].x)[0] + img[1].at<Vec3b>(pts[1][index3].y, pts[1][index3].x)[0]) * 0.5;
+	g = (img[0].at<Vec3b>(pts[0][index3].y, pts[0][index3].x)[1] + img[1].at<Vec3b>(pts[1][index3].y, pts[1][index3].x)[1]) * 0.5;
+	r = (img[0].at<Vec3b>(pts[0][index3].y, pts[0][index3].x)[2] + img[1].at<Vec3b>(pts[1][index3].y, pts[1][index3].x)[2]) * 0.5;
+	glColor3f((float)r / 255.0, (float)g / 255.0, (float)b / 255.0);
 	glVertex3f(pts3d[index3].x, pts3d[index3].y, pts3d[index3].z);
 }
 
@@ -202,47 +231,109 @@ void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& co
 	glEnd();
 }
 
-void GLWidget3D::reconstruct(std::vector<cv::Mat>& img) {
+void GLWidget3D::featureExtraction(std::vector<cv::Mat>& img) {
+	SIFT sift;
+
+	std::vector<KeyPoint> keypoints[2];
+	/*
+	sift.detect(img[0], keypoints[0]);
+	sift.detect(img[0], keypoints[1]);
+	*/
+	
+	SurfFeatureDetector detector(400);
+
+
+	detector.detect(img[0], keypoints[0]);
+	detector.detect(img[1], keypoints[1]);
+
+	SurfDescriptorExtractor extractor;
+
+	Mat descriptors[2];
+
+	extractor.compute(img[0], keypoints[0], descriptors[0]);
+	extractor.compute(img[1], keypoints[1], descriptors[1]);
+
+	FlannBasedMatcher matcher;
+	std::vector< DMatch > matches;
+	matcher.match(descriptors[0], descriptors[1], matches);
+
+	double max_dist = 0; double min_dist = 100;
+
+	//-- Quick calculation of max and min distances between keypoints
+	for (int i = 0; i < descriptors[0].rows; i++) {
+		double dist = matches[i].distance;
+		if( dist < min_dist ) min_dist = dist;
+		if( dist > max_dist ) max_dist = dist;
+	}
+
+	printf("-- Max dist : %f \n", max_dist );
+	printf("-- Min dist : %f \n", min_dist );
+
+	//-- Draw only "good" matches (i.e. whose distance is less than 2*min_dist,
+	//-- or a small arbitary value ( 0.02 ) in the event that min_dist is very
+	//-- small)
+	//-- PS.- radiusMatch can also be used here.
+	std::vector< DMatch > good_matches;
+
+	for( int i = 0; i < descriptors[0].rows; i++ ) {
+		if (cv::norm(keypoints[0][i].pt - keypoints[1][matches[i].trainIdx].pt) < 100) {
+		//if( matches[i].distance <= max(2*min_dist, 0.02) ) {
+			good_matches.push_back( matches[i]);
+		}
+	}
+
+	//-- Draw only "good" matches
+	Mat img_matches;
+	drawMatches( img[0], keypoints[0], img[1], keypoints[1],
+               good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+               vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+
+	//-- Show detected matches
+	imwrite( "matches.jpg", img_matches );
+
+	FILE* fp = fopen("matches.txt", "w");
+	for (int i = 0; i < good_matches.size(); ++i) {
+		fprintf(fp, "%lf,%lf,%lf,%lf\n", keypoints[0][good_matches[i].queryIdx].pt.x, keypoints[0][good_matches[i].queryIdx].pt.y, keypoints[1][good_matches[i].trainIdx].pt.x, keypoints[1][good_matches[i].trainIdx].pt.y);
+	}
+	fclose(fp);
+}
+
+void GLWidget3D::reconstruct() {
+	img.resize(2);
+	img[0] = imread("images/image1.jpg");
+	img[1] = imread("images/image2.jpg");
+
 	Mat_<double> K;
 	cv::FileStorage fs;
 	fs.open("camera_calibration.yml", cv::FileStorage::READ);
 	fs["camera_matrix"] >> K;
 	std::cout << "K:\n" << K << std::endl;
 
-	// とりあえず、対応点を手動で設定
+	// 対応点をファイルから読み込む
 	pts.resize(2);
-	{
-		pts[0].clear();
-		pts[1].clear();
+	pts[0].clear();
+	pts[1].clear();
+	std::ifstream ifs("matches.txt");
+	char str[256];
+	while (!ifs.eof()) {
+		Point2f x1, x2;
+		char delimitor;
+		ifs >> x1.x >> delimitor >> x1.y >> delimitor >> x2.x >> delimitor >> x2.y;
 
-		pts[0].push_back(cv::Point2f(590, 239));
-		pts[1].push_back(cv::Point2f(636, 279));
-		pts[0].push_back(cv::Point2f(615, 568));
-		pts[1].push_back(cv::Point2f(647, 611));
-		pts[0].push_back(cv::Point2f(1017, 662));
-		pts[1].push_back(cv::Point2f(1082, 686));
-		pts[0].push_back(cv::Point2f(1027, 297));
-		pts[1].push_back(cv::Point2f(1105, 329));
-		pts[0].push_back(cv::Point2f(291, 653));
-		pts[1].push_back(cv::Point2f(279, 714));
-		pts[0].push_back(cv::Point2f(1384, 936));
-		pts[1].push_back(cv::Point2f(1457, 927));
-		pts[0].push_back(cv::Point2f(720, 604));
-		pts[1].push_back(cv::Point2f(810, 639));
-		pts[0].push_back(cv::Point2f(666, 659));
-		pts[1].push_back(cv::Point2f(768, 697));
-		pts[0].push_back(cv::Point2f(708, 651));
-		pts[1].push_back(cv::Point2f(810, 686));
-		pts[0].push_back(cv::Point2f(802, 757));
-		pts[1].push_back(cv::Point2f(802, 756));
-		pts[0].push_back(cv::Point2f(649, 739));
-		pts[1].push_back(cv::Point2f(753, 778));
-		pts[0].push_back(cv::Point2f(696, 794));
-		pts[1].push_back(cv::Point2f(777, 830));
-		pts[0].push_back(cv::Point2f(709, 769));
-		pts[1].push_back(cv::Point2f(613, 727));
+		if (x1.x == 0 && x1.y == 0 && x2.x == 0 && x2.y == 0) continue;
+
+		pts[0].push_back(x1);
+		pts[1].push_back(x2);
 	}
-	
+	/*
+	while (ifs.getline(str, 256)) {
+		Point2f x1, x2;
+		sscanf(str, "%lf,%lf,%lf,%lf", &x1.x, &x1.y, &x2.x, &x2.y);
+		pts[0].push_back(x1);
+		pts[1].push_back(x2);
+	}
+	*/
+
 	// Y座標を反転させる
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < pts[i].size(); ++j) {
@@ -251,18 +342,21 @@ void GLWidget3D::reconstruct(std::vector<cv::Mat>& img) {
 	}
 
 	// 座標の正規化
+	std::vector<std::vector<cv::Point2f> > normalized_pts(2);
 	cv::Mat_<double> Kinv = K.inv();
 	for (int i = 0; i < 2; ++i) {
+		normalized_pts[i].resize(pts[i].size());
+
 		for (int j = 0; j < pts[i].size(); ++j) {
-			pts[i][j].x = (pts[i][j].x - K(0, 2)) / K(0, 0);
-			pts[i][j].y = (pts[i][j].y - K(1, 2)) / K(1, 1);
+			normalized_pts[i][j].x = (pts[i][j].x - K(0, 2)) / K(0, 0);
+			normalized_pts[i][j].y = (pts[i][j].y - K(1, 2)) / K(1, 1);
 		}
 	}
 
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
 	//cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
-	cv::Matx33d E = cv::findFundamentalMat(pts[0], pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
+	cv::Matx33d E = cv::findFundamentalMat(normalized_pts[0], normalized_pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
 	//cv::Matx33d E = cameraMatrix.t() * F * cameraMatrix;
 
 
@@ -275,7 +369,7 @@ void GLWidget3D::reconstruct(std::vector<cv::Mat>& img) {
 
 	std::cout << "P:\n" << P1 << std::endl;
 
-	double avg_error = reconstruction.unprojectPoints(K, P, P1, pts[0], pts[1], pts3d);
+	double avg_error = reconstruction.unprojectPoints(K, P, P1, normalized_pts[0], normalized_pts[1], pts3d);
 	printf("avg error: %lf\n", avg_error);	
 
 	// compute bounding box

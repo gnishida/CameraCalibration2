@@ -3,6 +3,7 @@
 MainWindow::MainWindow(QWidget *parent, Qt::WFlags flags) : QMainWindow(parent, flags) {
 	ui.setupUi(this);
 
+	connect(ui.actionFeatureExtraction, SIGNAL(triggered()), this, SLOT(onFeatureExtraction()));
 	connect(ui.actionCalibration, SIGNAL(triggered()), this, SLOT(onCalibration()));
 	connect(ui.actionReconstruction, SIGNAL(triggered()), this, SLOT(onReconstruction()));
 	connect(ui.actionExit, SIGNAL(triggered()), this, SLOT(close()));
@@ -10,6 +11,14 @@ MainWindow::MainWindow(QWidget *parent, Qt::WFlags flags) : QMainWindow(parent, 
 	// setup the OpenGL widget
 	glWidget = new GLWidget3D(this);
 	setCentralWidget(glWidget);
+}
+
+void MainWindow::onFeatureExtraction() {
+	std::vector<Mat> img(2);
+	img[0] = cv::imread("images/image1.jpg");
+	img[1] = cv::imread("images/image2.jpg");
+
+	glWidget->featureExtraction(img);
 }
 
 void MainWindow::onCalibration() {
@@ -26,14 +35,10 @@ void MainWindow::onCalibration() {
 			img[i] = cv::imread(fileNames[i].toUtf8().data());
 		}
 
-		//glWidget->calibrateCamera(img);
+		glWidget->calibrateCamera(img);
 	}
 }
 
 void MainWindow::onReconstruction() {
-	std::vector<Mat> img(2);
-	img[0] = cv::imread("images/image1.jpg");
-	img[1] = cv::imread("images/image2.jpg");
-
-	glWidget->reconstruct(img);
+	glWidget->reconstruct();
 }

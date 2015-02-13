@@ -27,6 +27,7 @@
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionFeatureExtraction"/>
     <addaction name="actionCalibration"/>
     <addaction name="actionReconstruction"/>
     <addaction name="separator"/>
@@ -56,6 +57,11 @@
   <action name="actionCalibration">
    <property name="text">
     <string>Calibration</string>
+   </property>
+  </action>
+  <action name="actionFeatureExtraction">
+   <property name="text">
+    <string>Feature Extraction</string>
    </property>
   </action>
  </widget>

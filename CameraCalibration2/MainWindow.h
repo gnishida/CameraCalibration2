@@ -17,6 +17,7 @@ public:
 	MainWindow(QWidget *parent = 0, Qt::WFlags flags = 0);
 
 public slots:
+	void onFeatureExtraction();
 	void onCalibration();
 	void onReconstruction();
 };

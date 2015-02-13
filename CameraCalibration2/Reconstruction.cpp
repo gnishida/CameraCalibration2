@@ -34,7 +34,7 @@ void Reconstruction::computeProjectionMat(Matx33d E, Matx34d& P1, Matx34d& P2) {
 	Matx33d W(0, -1, 0, 1, 0, 0, 0, 0, 1);
 	Matx33d Winv(0, 1, 0, -1, 0, 0, 0, 0, 1);
 	Mat_<double> R = svd.u * Mat(W.t()) * svd.vt;
-	Mat_<double> t = -svd.u.col(2);
+	Mat_<double> t = svd.u.col(2);
 	P1 = Matx34d(1, 0, 0, 0,
 	             0, 1, 0, 0,
 				 0, 0, 1, 0);

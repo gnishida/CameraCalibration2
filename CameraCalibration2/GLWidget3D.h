@@ -20,6 +20,7 @@ private:
 	Camera camera;
 	QPoint lastPos;
 
+	std::vector<cv::Mat> img;
 	cv::Mat P[2];
 	std::vector<std::vector<cv::Point2f> > pts;
 	std::vector<cv::Point3d> pts3d;
@@ -30,7 +31,8 @@ public:
 	QVector2D mouseTo2D(int x,int y);
 	void drawTriangle(int index1, int index2, int index3);
 	void drawSphere(float x, float y, float z, float r, const QColor& color);
-	void reconstruct(std::vector<cv::Mat>& img);
+	void featureExtraction(std::vector<cv::Mat>& img);
+	void reconstruct();
 	void calibrateCamera(std::vector<cv::Mat>& img);
 
 protected:
