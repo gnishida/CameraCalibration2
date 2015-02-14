@@ -426,7 +426,9 @@ void GLWidget3D::reconstruct() {
 	double avg_error = reconstruction.unprojectPoints(K, R1, T1, R2, T2, pts[0], pts[1], pts3d, P1, P2);
 	printf("avg error after reprojection: %lf\n", avg_error);
 
-	reconstruction.bundleAdjustment(F, P1, P2, K, pts[0], pts[1], pts3d);
+	for (int i = 0; i < pts3d.size(); ++i) {
+		reconstruction.bundleAdjustment(F, P1, P2, K, pts[0][i], pts[1][i], pts3d[i]);
+	}
 
 	// compute bounding box
 	double min_x = std::numeric_limits<float>::max();

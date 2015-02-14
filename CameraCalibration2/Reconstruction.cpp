@@ -194,9 +194,6 @@ void Reconstruction::sampson(Mat_<double>& F, std::vector<Point2f>& pts1, std::v
 	}
 }
 
-void Reconstruction::bundleAdjustment(const Mat_<double>& F, const Mat_<double>& P1, const Mat_<double>& P2, const Mat_<double>& K, const std::vector<Point2f>& pts1, const std::vector<Point2f>& pts2, std::vector<Point3d>& pts3d) {
-}
-
 bool Reconstruction::decomposeEtoRandT(const Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2, Mat_<double>& t1, Mat_<double>& t2) {
 	SVD svd(E);
 
@@ -220,4 +217,139 @@ bool Reconstruction::decomposeEtoRandT(const Mat_<double>& E, Mat_<double>& R1, 
 	t2 = -svd.u.col(2); //u3
 
 	return true;
+}
+
+void Reconstruction::bundleAdjustment(Mat_<double>& F, Mat_<double>& P1, Mat_<double>& P2, Mat_<double>& K, Point2f& pt1, Point2f& pt2, Point3d& pt3d) {
+	// パラメータの数 ( 3 )
+	const int NUM_PARAMS = 3;
+
+	// データ数 (評価式の数 1 )
+	int total_m = 1;
+
+	// パラメータ (X, Y, Z)
+	real x[NUM_PARAMS];
+
+	// パラメータの初期推定値
+	x[0] = pt3d.x;
+	x[1] = pt3d.y;
+	x[2] = pt3d.z;
+
+	// 観測データ（ダミー）
+	real y[1];
+
+	// 真値と観測データとの誤差が格納される配列
+	real fvec[1];
+
+	// 結果のヤコビ行列
+	real* fjac = new real[total_m * NUM_PARAMS];
+
+	// lmdif内部使用パラメータ
+	int ipvt[NUM_PARAMS];
+
+	real diag[NUM_PARAMS], qtf[NUM_PARAMS], wa1[NUM_PARAMS], wa2[NUM_PARAMS], wa3[NUM_PARAMS];
+	real* wa4 = new real[total_m * 2];
+
+	// 観測データを格納する構造体オブジェクト
+	fcndata_t data;
+	data.m = total_m;
+	data.y = y;
+	data.pt3d = &pt3d;
+	data.pt1 = &pt1;
+	data.pt2 = &pt2;
+	data.K = &K;
+	data.P1 = &P1;
+	data.P2 = &P2;
+
+	// 観測データの数と同じ値にすることを推奨する
+	int ldfjac = total_m * 2;
+
+	// 各種パラメータ（推奨値のまま）
+	real ftol = sqrt(__cminpack_func__(dpmpar)(1));
+	real xtol = sqrt(__cminpack_func__(dpmpar)(1));
+	real gtol = 0.;
+
+	// 最大何回繰り返すか？
+	int maxfev = 1000;
+
+	// 収束チェック用の微小値
+	real epsfcn = 1e-010;//1e-08;
+	int mode = 1;
+
+	// 1が推奨されている？
+	real factor = 1;//1.e2;
+
+	// 実際に繰り返した回数
+	int nfev;
+
+	int nprint = 0;
+	int info = __cminpack_func__(lmdif)(fcn, &data, total_m, NUM_PARAMS, x, fvec, ftol, xtol, gtol, maxfev, epsfcn,
+									diag, mode, factor, nprint, &nfev, fjac, ldfjac, ipvt, qtf, wa1, wa2, wa3, wa4);
+	real fnorm = __cminpack_func__(enorm)(total_m, fvec);
+
+	printf("final l2 norm of the residuals: %15.7g\n\n", (double)fnorm);
+	printf("number of function evaluations: %10i\n\n", nfev);
+	printf("exit parameter %10i\n\n", info);
+
+	// 収束結果を反映する
+	pt3d.x = x[0];
+	pt3d.y = x[1];
+	pt3d.z = x[2];
+
+	// 真値と観測データの差を合計する
+	/*
+	double total_error = 0.0;
+	for (int i = 0; i < 2; ++i) {
+		std::vector<cv::Point2f> projectedImagePoints;
+		
+		projectPoints(objectPoints[i], rvecs[i], tvecs[i], cameraMat, distortion, projectedImagePoints);
+
+		for (int j = 0; j < 70; ++j) {
+			// 射影結果と観測データの誤差
+			total_error += sqrt(SQR(projectedImagePoints[j].x - imagePoints[i][j].x) + SQR(projectedImagePoints[j].y - imagePoints[i][j].y));
+		}
+	}
+	*/
+
+	// メモリ解放
+	delete [] fjac;
+	delete [] wa4;
+}
+
+/**
+ * 自分の関数を記述し、真値と観測データとの差を計算する。
+ *
+ * @param p		観測データが入った構造体オブジェクト
+ * @param m		観測データの数 ( 点の数 )
+ * @param n		パラメータの数 ( 3 x 点の数 )
+ * @param x		パラメータ配列 ( (X, Y, Z) * 点の数 )
+ * @param fvec	真値と観測データとの差を格納する配列
+ * @param iflag	lmdifから返されるフラグ (0なら終了?)
+ * @return		0を返却する
+ */
+int Reconstruction::fcn(void *p, int m, int n, const real *x, real *fvec, int iflag) {
+	const real *y = ((fcndata_t*)p)->y;
+
+	if (iflag == 0) {
+		/* insert print statements here when nprint is positive. */
+		/* if the nprint parameter to lmdif is positive, the function is
+		called every nprint iterations with iflag=0, so that the
+		function may perform special operations, such as printing
+		residuals. */
+		return 0;
+	}
+
+	Mat_<double> K = *(((fcndata_t*)p)->K);
+	Mat_<double> P1 = *(((fcndata_t*)p)->P1);
+	Mat_<double> P2 = *(((fcndata_t*)p)->P2);
+
+	
+	Mat_<double> X = (Mat_<double>(4, 1) << ((fcndata_t*)p)->pt3d->x, ((fcndata_t*)p)->pt3d->y, ((fcndata_t*)p)->pt3d->z, 1);
+	Mat_<double> x1 = K * P1 * X;
+	Mat_<double> x2 = K * P2 * X;
+	Point2f u1(x1(0, 0) / x1(2, 0), x1(1, 0) / x1(2, 0));
+	Point2f u2(x2(0, 0) / x2(2, 0), x2(1, 0) / x2(2, 0));
+
+	fvec[0] = norm(u1 - *(((fcndata_t*)p)->pt1)) + norm(u2 - *(((fcndata_t*)p)->pt2));
+
+	return 0;
 }

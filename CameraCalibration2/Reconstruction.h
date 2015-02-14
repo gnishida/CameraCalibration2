@@ -1,9 +1,24 @@
-#pragma once
+﻿#pragma once
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
+#include <cminpack.h>
+#define real __cminpack_real__
 
 using namespace cv;
+
+// 観測データを定義する構造体
+typedef struct {
+	int m;
+	real *y;
+	Mat_<double>* K;
+	Mat_<double>* P1;
+	Mat_<double>* P2;
+	Point3d* pt3d;
+	Point2f* pt1;
+	Point2f* pt2;
+
+} fcndata_t;
 
 class Reconstruction {
 public:
@@ -19,7 +34,9 @@ public:
 	Mat_<double> iterativeTriangulation(const Point3d& u, const Mat_<double>& P, const Point3d& u1, const Mat_<double>& P1);
 
 	void sampson(Mat_<double>& F, std::vector<Point2f>& pts1, std::vector<Point2f>& pts2);
-	void bundleAdjustment(const Mat_<double>& F, const Mat_<double>& P1, const Mat_<double>& P2, const Mat_<double>& K, const std::vector<Point2f>& pts1, const std::vector<Point2f>& pts2, std::vector<Point3d>& pts3d);
 	bool decomposeEtoRandT(const Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2, Mat_<double>& t1, Mat_<double>& t2);
+
+	void bundleAdjustment(Mat_<double>& F, Mat_<double>& P1, Mat_<double>& P2, Mat_<double>& K, Point2f& pt1, Point2f& pt2, Point3d& pt3d);
+	static int fcn(void *p, int m, int n, const real *x, real *fvec, int iflag);
 };
 
