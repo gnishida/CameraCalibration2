@@ -125,9 +125,7 @@ void GLWidget3D::drawScene() {
 	glVertex3f(0, 0, 500);
 	glEnd();
 
-
 	if (pts3d.size() > 0) {
-		glBegin(GL_TRIANGLES);
 		drawTriangle(0, 1, 2);
 		drawTriangle(0, 2, 3);
 		drawTriangle(12, 13, 14);
@@ -140,8 +138,7 @@ void GLWidget3D::drawScene() {
 		drawTriangle(4, 6, 19);
 		drawTriangle(19, 6, 7);
 		drawTriangle(19, 7, 8);
-		glEnd();
-		
+
 		/*
 		Subdiv2D subdiv(Rect(0, 0, 3000, 3000));
 		for (int i = 0; i < pts3d.size(); ++i) {
@@ -188,23 +185,31 @@ QVector2D GLWidget3D::mouseTo2D(int x,int y) {
 }
 
 void GLWidget3D::drawTriangle(int index1, int index2, int index3) {
-	int b = (img[0].at<Vec3b>(pts[0][index1].y, pts[0][index1].x)[0] + img[1].at<Vec3b>(pts[1][index1].y, pts[1][index1].x)[0]) * 0.5;
-	int g = (img[0].at<Vec3b>(pts[0][index1].y, pts[0][index1].x)[1] + img[1].at<Vec3b>(pts[1][index1].y, pts[1][index1].x)[1]) * 0.5;
-	int r = (img[0].at<Vec3b>(pts[0][index1].y, pts[0][index1].x)[2] + img[1].at<Vec3b>(pts[1][index1].y, pts[1][index1].x)[2]) * 0.5;
-	glColor3f((float)r / 255.0, (float)g / 255.0, (float)b / 255.0);
+	std::vector<Point2f> texCoord;
+	GLuint texture = generateTexture(index1, index2, index3, texCoord);
+	std::cout << "texture: " << texture << std::endl;
+	
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	
+	glBegin(GL_TRIANGLES);
+
+	glColor3f(1, 1, 1);
+	glTexCoord2f(texCoord[0].x, texCoord[0].y);
 	glVertex3f(pts3d[index1].x, pts3d[index1].y, pts3d[index1].z);
 
-	b = (img[0].at<Vec3b>(pts[0][index2].y, pts[0][index2].x)[0] + img[1].at<Vec3b>(pts[1][index2].y, pts[1][index2].x)[0]) * 0.5;
-	g = (img[0].at<Vec3b>(pts[0][index2].y, pts[0][index2].x)[1] + img[1].at<Vec3b>(pts[1][index2].y, pts[1][index2].x)[1]) * 0.5;
-	r = (img[0].at<Vec3b>(pts[0][index2].y, pts[0][index2].x)[2] + img[1].at<Vec3b>(pts[1][index2].y, pts[1][index2].x)[2]) * 0.5;
-	glColor3f((float)r / 255.0, (float)g / 255.0, (float)b / 255.0);
+	glColor3f(1, 1, 1);
+	glTexCoord2f(texCoord[1].x, texCoord[1].y);
 	glVertex3f(pts3d[index2].x, pts3d[index2].y, pts3d[index2].z);
 
-	b = (img[0].at<Vec3b>(pts[0][index3].y, pts[0][index3].x)[0] + img[1].at<Vec3b>(pts[1][index3].y, pts[1][index3].x)[0]) * 0.5;
-	g = (img[0].at<Vec3b>(pts[0][index3].y, pts[0][index3].x)[1] + img[1].at<Vec3b>(pts[1][index3].y, pts[1][index3].x)[1]) * 0.5;
-	r = (img[0].at<Vec3b>(pts[0][index3].y, pts[0][index3].x)[2] + img[1].at<Vec3b>(pts[1][index3].y, pts[1][index3].x)[2]) * 0.5;
-	glColor3f((float)r / 255.0, (float)g / 255.0, (float)b / 255.0);
+	glColor3f(1, 1, 1);
+	glTexCoord2f(texCoord[2].x, texCoord[2].y);
 	glVertex3f(pts3d[index3].x, pts3d[index3].y, pts3d[index3].z);
+
+	glEnd();
+
+	//glBindTexture(GL_TEXTURE_2D, 0);
+	//glDeleteTextures(1, &texture);
 }
 
 void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& color) {
@@ -237,6 +242,75 @@ void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& co
 		}
 	}
 	glEnd();
+}
+
+GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vector<Point2f>& texCoord) {
+	QString str = QString("%1.%2.%3").arg(index1).arg(index2).arg(index3);
+	
+	if (!textures.contains(str)) {
+		Mat_<double> a = (Mat_<double>(3, 1) << pts3d[index2].x - pts3d[index1].x, pts3d[index2].y - pts3d[index1].y, pts3d[index2].z - pts3d[index2].z);
+		std::cout << a << std::endl;
+		Mat_<double> b = (Mat_<double>(3, 1) << pts3d[index3].x - pts3d[index1].x, pts3d[index3].y - pts3d[index1].y, pts3d[index3].z - pts3d[index2].z);
+		std::cout << b << std::endl;
+		Mat_<double> c = a.cross(b);
+		std::cout << c << std::endl;
+		b = c.cross(a);
+		normalize(a, a);
+		std::cout << a << std::endl;
+		normalize(b, b);
+		std::cout << b << std::endl;
+		normalize(c, c);
+		std::cout << c << std::endl;
+		Mat_<double> abc = (Mat_<double>(3, 3) << a(0, 0), b(0, 0), c(0, 0),
+													a(1, 0), b(1, 0), c(1, 0),
+													a(2, 0), b(2, 0), c(2, 0));
+		a = abc.inv() * Mat_<double>(pts3d[index2] - pts3d[index1]);
+		b = abc.inv() * Mat_<double>(pts3d[index3] - pts3d[index1]);
+
+		Point2f src[3];
+		src[0].x = pts[0][index1].x;
+		src[0].y = pts[0][index1].y;
+		src[1].x = pts[0][index2].x;
+		src[1].y = pts[0][index2].y;
+		src[2].x = pts[0][index3].x;
+		src[2].y = pts[0][index3].y;
+
+		Point2f dst[3];
+		dst[0].x = 0;
+		dst[0].y = 0;
+		dst[1].x = a(0, 0);
+		dst[1].y = 0;
+		dst[2].x = b(0, 0);
+		dst[2].y = b(1, 0);
+
+		texCoord.resize(3);
+		for (int i = 0; i < 3; ++i) {
+			texCoord[i].x = dst[i].x / img[0].size().width;
+			texCoord[i].y = dst[i].y / img[0].size().height;
+		}
+
+		Mat affine = getAffineTransform(src, dst);
+		cv::Mat warped_img;
+		flip(img[0], warped_img, 0);
+		warpAffine(warped_img, warped_img, affine, img[0].size());
+	
+		GLuint texture;
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, warped_img.size().width, warped_img.size().height, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, warped_img.data);
+
+		textures[str] = std::make_pair(texture, texCoord);
+
+
+
+		return texture;
+	} else {
+		texCoord = textures[str].second;
+		return textures[str].first;
+	}
 }
 
 void GLWidget3D::featureExtraction(std::vector<cv::Mat>& img) {

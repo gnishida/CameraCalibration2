@@ -24,6 +24,7 @@ private:
 	cv::Mat P[2];
 	std::vector<std::vector<cv::Point2f> > pts;
 	std::vector<cv::Point3d> pts3d;
+	QMap<QString, std::pair<GLuint, std::vector<Point2f> > > textures;
 
 public:
 	GLWidget3D(MainWindow* mainWin);
@@ -31,6 +32,7 @@ public:
 	QVector2D mouseTo2D(int x,int y);
 	void drawTriangle(int index1, int index2, int index3);
 	void drawSphere(float x, float y, float z, float r, const QColor& color);
+	GLuint generateTexture(int index1, int index2, int index3, std::vector<Point2f>& texCoord);
 	void featureExtraction(std::vector<cv::Mat>& img);
 	void reconstruct();
 	void calibrateCamera(std::vector<cv::Mat>& img);
