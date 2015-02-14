@@ -234,16 +234,9 @@ void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& co
 }
 
 void GLWidget3D::featureExtraction(std::vector<cv::Mat>& img) {
-	SIFT sift;
-
 	std::vector<KeyPoint> keypoints[2];
-	/*
-	sift.detect(img[0], keypoints[0]);
-	sift.detect(img[0], keypoints[1]);
-	*/
 	
 	SurfFeatureDetector detector(400);
-
 
 	detector.detect(img[0], keypoints[0]);
 	detector.detect(img[1], keypoints[1]);
@@ -327,32 +320,11 @@ void GLWidget3D::reconstruct() {
 		pts[0].push_back(x1);
 		pts[1].push_back(x2);
 	}
-	/*
-	while (ifs.getline(str, 256)) {
-		Point2f x1, x2;
-		sscanf(str, "%lf,%lf,%lf,%lf", &x1.x, &x1.y, &x2.x, &x2.y);
-		pts[0].push_back(x1);
-		pts[1].push_back(x2);
-	}
-	*/
 
 	// Y座標を反転させる
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < pts[i].size(); ++j) {
 			pts[i][j].y = img[i].rows - pts[i][j].y;
-		}
-	}
-
-	// 座標の正規化
-	std::vector<std::vector<cv::Point2f> > normalized_pts(2);
-	cv::Mat_<double> Kinv = K.inv();
-	for (int i = 0; i < 2; ++i) {
-		normalized_pts[i].resize(pts[i].size());
-
-		for (int j = 0; j < pts[i].size(); ++j) {
-			Mat_<double> x_tilda = Kinv * (Mat_<double>(3, 1) << pts[i][j].x, pts[i][j].y, 1);
-			normalized_pts[i][j] = Point2f(x_tilda(0, 0), x_tilda(1, 0));
-			std::cout << x_tilda << std::endl;
 		}
 	}
 
@@ -408,6 +380,8 @@ void GLWidget3D::reconstruct() {
 		pts3d[i].y *= scale_factor;
 		pts3d[i].z *= -scale_factor;
 	}
+
+	updateGL();
 }
 
 void GLWidget3D::calibrateCamera(std::vector<cv::Mat>& img) {

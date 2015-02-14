@@ -100,17 +100,14 @@ double Reconstruction::unprojectPoints(Size& size, Mat_<double>& K, Mat_<double>
 		std::cout << "X:\n" << X << std::endl;
 		cv::Point3d p = cv::Point3d(X(0), X(1), X(2));
 		pts3d.push_back(p);
-		std::cout << "point:" << p << std::endl;
 		
 		// reprojection errorを計算する
 		cv::Mat_<double> pt1_3d_hat = K * Mat_<double>(P) * Mat_<double>(X);
-		std::cout << "projection to image1: " << pt1_3d_hat << std::endl;
 		Point2f pt1_hat(pt1_3d_hat(0, 0) / pt1_3d_hat(2, 0), pt1_3d_hat(1, 0) / pt1_3d_hat(2, 0));
 		std::cout << "projected point1: " << pt1_hat << " (observed: " << pts1[i] << ") E=" << norm(pt1_hat - pts1[i]) << std::endl;
 		error.push_back(norm(pt1_hat - pts1[i]));
 
 		cv::Mat_<double> pt2_3d_hat = K * Mat_<double>(P1) * Mat_<double>(X);
-		std::cout << "projection to image1: " << pt2_3d_hat << std::endl;
 		Point2f pt2_hat(pt2_3d_hat(0, 0) / pt2_3d_hat(2, 0), pt2_3d_hat(1, 0) / pt2_3d_hat(2, 0));
 		std::cout << "projected point2: " << pt2_hat << " (observed: " << pts2[i] << ") E=" << norm(pt2_hat - pts1[i]) << std::endl;
 		error.push_back(norm(pt2_hat - pts1[i]));
