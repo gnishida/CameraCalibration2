@@ -130,10 +130,16 @@ void GLWidget3D::drawScene() {
 		glBegin(GL_TRIANGLES);
 		drawTriangle(0, 1, 2);
 		drawTriangle(0, 2, 3);
+		drawTriangle(12, 13, 14);
+		drawTriangle(12, 14, 15);
+		drawTriangle(0, 16, 17);
+		drawTriangle(0, 17, 1);
+		drawTriangle(1, 17, 18);
+		drawTriangle(1, 18, 2);
 		drawTriangle(4, 5, 6);
-		drawTriangle(4, 6, 1);
-		drawTriangle(1, 6, 7);
-		drawTriangle(1, 7, 8);
+		drawTriangle(4, 6, 19);
+		drawTriangle(19, 6, 7);
+		drawTriangle(19, 7, 8);
 		glEnd();
 		
 		/*
