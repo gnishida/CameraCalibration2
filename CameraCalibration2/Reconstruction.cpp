@@ -54,29 +54,28 @@ double Reconstruction::unprojectPoints(Size& size, cv::Mat_<double>& K, const Ma
 				  R1(1, 0), R1(1, 1), R1(1, 2), T1(1, 0),
 				  R1(2, 0), R1(2, 1), R1(2, 2), T1(2, 0));	
 	double error = unprojectPoints(size, K, Kinv, P, P1, pts1, pts2, pts3d, numFront);	
-	if (numFront > pts1.size() * 0.5) return error;
+	if (numFront > pts1.size() * 0.75) return error;
 
 	// 第2候補のチェック
 	P1 = Matx34d(R1(0, 0), R1(0, 1), R1(0, 2), T2(0, 0),
 				 R1(1, 0), R1(1, 1), R1(1, 2), T2(1, 0),
 				 R1(2, 0), R1(2, 1), R1(2, 2), T2(2, 0));
 	error = unprojectPoints(size, K, Kinv, P, P1, pts1, pts2, pts3d, numFront);	
-	//if (numFront > pts1.size() * 0.5) return error;
+	if (numFront > pts1.size() * 0.75) return error;
 
 	// 第3候補のチェック
 	P1 = Matx34d(R2(0, 0), R2(0, 1), R2(0, 2), T1(0, 0),
 				 R2(1, 0), R2(1, 1), R2(1, 2), T1(1, 0),
 				 R2(2, 0), R2(2, 1), R2(2, 2), T1(2, 0));
 	error = unprojectPoints(size, K, Kinv, P, P1, pts1, pts2, pts3d, numFront);	
-	//if (numFront > pts1.size() * 0.5) return error;
-	return error;
+	if (numFront > pts1.size() * 0.75) return error;
 
 	// 第4候補のチェック
 	P1 = Matx34d(R2(0, 0), R2(0, 1), R2(0, 2), T2(0, 0),
 				 R2(1, 0), R2(1, 1), R2(1, 2), T2(1, 0),
 				 R2(2, 0), R2(2, 1), R2(2, 2), T2(2, 0));
 	error = unprojectPoints(size, K, Kinv, P, P1, pts1, pts2, pts3d, numFront);	
-	if (numFront > pts1.size() * 0.5) return error;
+	if (numFront > pts1.size() * 0.75) return error;
 
 	return error;
 }
@@ -107,13 +106,13 @@ double Reconstruction::unprojectPoints(Size& size, Mat_<double>& K, Mat_<double>
 		cv::Mat_<double> pt1_3d_hat = K * Mat_<double>(P) * Mat_<double>(X);
 		std::cout << "projection to image1: " << pt1_3d_hat << std::endl;
 		Point2f pt1_hat(pt1_3d_hat(0, 0) / pt1_3d_hat(2, 0), pt1_3d_hat(1, 0) / pt1_3d_hat(2, 0));
-		std::cout << "projected point1: " << pt1_hat << " (observed: " << pts1[i] << ")" << std::endl;
+		std::cout << "projected point1: " << pt1_hat << " (observed: " << pts1[i] << ") E=" << norm(pt1_hat - pts1[i]) << std::endl;
 		error.push_back(norm(pt1_hat - pts1[i]));
 
 		cv::Mat_<double> pt2_3d_hat = K * Mat_<double>(P1) * Mat_<double>(X);
 		std::cout << "projection to image1: " << pt2_3d_hat << std::endl;
 		Point2f pt2_hat(pt2_3d_hat(0, 0) / pt2_3d_hat(2, 0), pt2_3d_hat(1, 0) / pt2_3d_hat(2, 0));
-		std::cout << "projected point2: " << pt2_hat << " (observed: " << pts2[i] << ")" << std::endl;
+		std::cout << "projected point2: " << pt2_hat << " (observed: " << pts2[i] << ") E=" << norm(pt2_hat - pts1[i]) << std::endl;
 		error.push_back(norm(pt2_hat - pts1[i]));
 
 		if ((P * X)(2, 0) > 0 && (P1 * X)(2, 0) > 0) {
@@ -177,4 +176,33 @@ cv::Matx41d Reconstruction::iterativeTriangulation(cv::Point3d u, Matx34d P, cv:
         X(0) = X_(0); X(1) = X_(1); X(2) = X_(2); X(3) = 1.0;
     }
     return X;
+}
+
+bool Reconstruction::decomposeEtoRandT(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2, Mat_<double>& t1, Mat_<double>& t2) {
+	//Using HZ E decomposition
+	Mat svd_u, svd_vt, svd_w;
+
+	SVD svd(E, SVD::MODIFY_A);
+
+
+	//check if first and second singular values are the same (as they should be)
+	double singular_values_ratio = fabsf(svd.w.at<double>(0) / svd.w.at<double>(1));
+	if(singular_values_ratio>1.0) singular_values_ratio = 1.0/singular_values_ratio; // flip ratio to keep it [0,1]
+	if (singular_values_ratio < 0.7) {
+		std::cout << "singular values are too far apart\n";
+		return false;
+	}
+	Matx33d W(0,-1,0, //HZ 9.13
+			  1,0,0,
+			  0,0,1);
+	Matx33d Wt(0,1,0,
+			  -1,0,0,
+			   0,0,1);
+
+	R1 = svd.u * Mat(W) * svd.vt; //HZ 9.19
+	R2 = svd.u * Mat(Wt) * svd.vt; //HZ 9.19
+	t1 = svd.u.col(2); //u3
+	t2 = -svd.u.col(2); //u3
+
+	return true;
 }

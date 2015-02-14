@@ -34,6 +34,7 @@ public:
 	void featureExtraction(std::vector<cv::Mat>& img);
 	void reconstruct();
 	void calibrateCamera(std::vector<cv::Mat>& img);
+	int findPointIndex(std::vector<Point2f>& pts, Point2f& pt);
 
 protected:
 	void initializeGL();

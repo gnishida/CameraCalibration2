@@ -135,10 +135,9 @@ void GLWidget3D::drawScene() {
 		drawTriangle(1, 6, 7);
 		drawTriangle(1, 7, 8);
 		glEnd();
-
-
+		
 		/*
-		Subdiv2D subdiv(Rect(0, 0, 2000, 2000));
+		Subdiv2D subdiv(Rect(0, 0, 3000, 3000));
 		for (int i = 0; i < pts3d.size(); ++i) {
 			subdiv.insert(Point2f(pts[0][i].x, pts[0][i].y));
 		}
@@ -146,13 +145,16 @@ void GLWidget3D::drawScene() {
 		subdiv.getTriangleList(triangleList);
 		glBegin(GL_TRIANGLES);
 		for (int i = 0; i < triangleList.size(); ++i) {
-			int edge;
-			int vertex[3];
-			subdiv.locate(Point2f(triangleList[i][0], triangleList[i][1]), edge, vertex[0]);
-			subdiv.locate(Point2f(triangleList[i][2], triangleList[i][3]), edge, vertex[1]);
-			subdiv.locate(Point2f(triangleList[i][4], triangleList[i][5]), edge, vertex[2]);
-		
-			drawTriangle(vertex[0], vertex[1], vertex[2]);
+			int edge = 0;
+			int vertex[3] = {0, 0, 0};
+			Point2f a(triangleList[i][0], triangleList[i][1]);
+			vertex[0] = findPointIndex(pts[0], Point2f(triangleList[i][0], triangleList[i][1]));
+			vertex[1] = findPointIndex(pts[0], Point2f(triangleList[i][2], triangleList[i][3]));
+			vertex[2] = findPointIndex(pts[0], Point2f(triangleList[i][4], triangleList[i][5]));
+
+			if (vertex[0] >= 0 && vertex[1] >= 0 && vertex[2] >= 0) {
+				drawTriangle(vertex[0], vertex[1], vertex[2]);
+			}
 		}
 		glEnd();
 		*/
@@ -348,25 +350,31 @@ void GLWidget3D::reconstruct() {
 		normalized_pts[i].resize(pts[i].size());
 
 		for (int j = 0; j < pts[i].size(); ++j) {
-			normalized_pts[i][j].x = (pts[i][j].x - K(0, 2)) / K(0, 0);
-			normalized_pts[i][j].y = (pts[i][j].y - K(1, 2)) / K(1, 1);
+			Mat_<double> x_tilda = Kinv * (Mat_<double>(3, 1) << pts[i][j].x, pts[i][j].y, 1);
+			normalized_pts[i][j] = Point2f(x_tilda(0, 0), x_tilda(1, 0));
+			std::cout << x_tilda << std::endl;
 		}
 	}
 
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
-	//cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
-	cv::Matx33d E = cv::findFundamentalMat(normalized_pts[0], normalized_pts[1], cv::FM_RANSAC, 0.1, 0.99, status);
-	//cv::Matx33d E = cameraMatrix.t() * F * cameraMatrix;
+	cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
+	cv::Mat_<double> E = K.t() * F * K;
 
-
+	std::cout << "E:" << E << std::endl;
 	std::cout << "det(E) should be less than 1e-07." << std::endl;
 	std::cout << "det(E): " << cv::determinant(E) << std::endl;
 
-
 	Matx34d P, P1;
 	Mat_<double> R1, R2, T1, T2;
-	reconstruction.computeProjectionMat(E, R1, T1, R2, T2);
+	reconstruction.decomposeEtoRandT(E, R1, R2, T1, T2);
+
+	if (determinant(R1) + 1.0 < 1e-09) {
+		//according to http://en.wikipedia.org/wiki/Essential_matrix#Showing_that_it_is_valid
+		cout << "det(R) == -1 ["<<determinant(R1)<<"]: flip E's sign" << endl;
+		E = -E;
+		reconstruction.decomposeEtoRandT(E, R1, R2, T1, T2);
+	}
 
 	double avg_error = reconstruction.unprojectPoints(img[0].size(), K, R1, T1, R2, T2, pts[0], pts[1], pts3d);
 	printf("avg error: %lf\n", avg_error);	
@@ -396,9 +404,9 @@ void GLWidget3D::reconstruct() {
 
 	float scale_factor = 1000.0f;
 	for (int i = 0; i < pts3d.size(); ++i) {
-		pts3d[i].x *= -scale_factor;
-		pts3d[i].y *= -scale_factor;
-		pts3d[i].z *= scale_factor;
+		pts3d[i].x *= scale_factor;
+		pts3d[i].y *= scale_factor;
+		pts3d[i].z *= -scale_factor;
 	}
 }
 
@@ -445,4 +453,18 @@ void GLWidget3D::calibrateCamera(std::vector<cv::Mat>& img) {
 	fs.open("camera_calibration.yml", cv::FileStorage::WRITE);
 	fs << "camera_matrix" << K;
 	fs << "distortion_coefficients" << distCoeffs;
+}
+
+int GLWidget3D::findPointIndex(std::vector<Point2f>& pts, Point2f& pt) {
+	double min_dist = 100;
+	int index = -1;
+	for (int i = 0; i < pts.size(); ++i) {
+		double dist = norm(pts[i] - pt);
+		if (dist < min_dist) {
+			min_dist = dist;
+			index = i;
+		}
+	}
+
+	return index;
 }
