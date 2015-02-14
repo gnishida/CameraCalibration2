@@ -179,11 +179,7 @@ cv::Matx41d Reconstruction::iterativeTriangulation(cv::Point3d u, Matx34d P, cv:
 }
 
 bool Reconstruction::decomposeEtoRandT(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2, Mat_<double>& t1, Mat_<double>& t2) {
-	//Using HZ E decomposition
-	Mat svd_u, svd_vt, svd_w;
-
-	SVD svd(E, SVD::MODIFY_A);
-
+	SVD svd(E);
 
 	//check if first and second singular values are the same (as they should be)
 	double singular_values_ratio = fabsf(svd.w.at<double>(0) / svd.w.at<double>(1));
