@@ -187,7 +187,6 @@ QVector2D GLWidget3D::mouseTo2D(int x,int y) {
 void GLWidget3D::drawTriangle(int index1, int index2, int index3) {
 	std::vector<Point2f> texCoord;
 	GLuint texture = generateTexture(index1, index2, index3, texCoord);
-	std::cout << "texture: " << texture << std::endl;
 	
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, texture);
@@ -249,18 +248,12 @@ GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vect
 	
 	if (!textures.contains(str)) {
 		Mat_<double> a = (Mat_<double>(3, 1) << pts3d[index2].x - pts3d[index1].x, pts3d[index2].y - pts3d[index1].y, pts3d[index2].z - pts3d[index2].z);
-		std::cout << a << std::endl;
 		Mat_<double> b = (Mat_<double>(3, 1) << pts3d[index3].x - pts3d[index1].x, pts3d[index3].y - pts3d[index1].y, pts3d[index3].z - pts3d[index2].z);
-		std::cout << b << std::endl;
 		Mat_<double> c = a.cross(b);
-		std::cout << c << std::endl;
 		b = c.cross(a);
 		normalize(a, a);
-		std::cout << a << std::endl;
 		normalize(b, b);
-		std::cout << b << std::endl;
 		normalize(c, c);
-		std::cout << c << std::endl;
 		Mat_<double> abc = (Mat_<double>(3, 3) << a(0, 0), b(0, 0), c(0, 0),
 													a(1, 0), b(1, 0), c(1, 0),
 													a(2, 0), b(2, 0), c(2, 0));
@@ -410,26 +403,30 @@ void GLWidget3D::reconstruct() {
 
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
-	cv::Mat F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
+	cv::Mat_<double> F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
 	cv::Mat_<double> E = K.t() * F * K;
+
+	reconstruction.sampson(F, pts[0], pts[1]);
 
 	std::cout << "E:" << E << std::endl;
 	std::cout << "det(E) should be less than 1e-07." << std::endl;
 	std::cout << "det(E): " << cv::determinant(E) << std::endl;
 
-	Matx34d P, P1;
 	Mat_<double> R1, R2, T1, T2;
 	reconstruction.decomposeEtoRandT(E, R1, R2, T1, T2);
 
 	if (determinant(R1) + 1.0 < 1e-09) {
 		//according to http://en.wikipedia.org/wiki/Essential_matrix#Showing_that_it_is_valid
-		cout << "det(R) == -1 ["<<determinant(R1)<<"]: flip E's sign" << endl;
+		// flip E's sign if det(R) == -1 instead of 1.
 		E = -E;
 		reconstruction.decomposeEtoRandT(E, R1, R2, T1, T2);
 	}
 
-	double avg_error = reconstruction.unprojectPoints(img[0].size(), K, R1, T1, R2, T2, pts[0], pts[1], pts3d);
-	printf("avg error: %lf\n", avg_error);	
+	Mat_<double> P1, P2;
+	double avg_error = reconstruction.unprojectPoints(K, R1, T1, R2, T2, pts[0], pts[1], pts3d, P1, P2);
+	printf("avg error after reprojection: %lf\n", avg_error);
+
+	reconstruction.bundleAdjustment(F, P1, P2, K, pts[0], pts[1], pts3d);
 
 	// compute bounding box
 	double min_x = std::numeric_limits<float>::max();
