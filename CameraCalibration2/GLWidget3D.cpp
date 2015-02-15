@@ -128,8 +128,6 @@ void GLWidget3D::drawScene() {
 	if (pts3d.size() > 0) {
 		drawTriangle(0, 1, 2);
 		drawTriangle(0, 2, 3);
-		drawTriangle(12, 13, 14);
-		drawTriangle(12, 14, 15);
 		drawTriangle(0, 16, 17);
 		drawTriangle(0, 17, 1);
 		drawTriangle(1, 17, 18);
@@ -138,6 +136,14 @@ void GLWidget3D::drawScene() {
 		drawTriangle(4, 6, 19);
 		drawTriangle(19, 6, 7);
 		drawTriangle(19, 7, 8);
+		drawTriangle(5, 9, 10);
+		drawTriangle(5, 10, 6);
+		drawTriangle(6, 10, 11);
+		drawTriangle(6, 11, 7);
+
+
+		drawTriangle(12, 13, 14);
+		drawTriangle(12, 14, 15);
 
 		/*
 		Subdiv2D subdiv(Rect(0, 0, 3000, 3000));
