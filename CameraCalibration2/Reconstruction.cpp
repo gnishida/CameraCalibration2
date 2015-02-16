@@ -16,68 +16,12 @@ Mat Reconstruction::findFundamentalMat(std::vector<cv::Point2f>& pts1, std::vect
 	Mat_<double> T1 = normalizePoints(pts1, normalized_pts[0]);
 	Mat_<double> T2 = normalizePoints(pts2, normalized_pts[1]);
 
-	/*
-	for (int iter = 0; iter < 1; ++iter) {
-		// 8個の点をランダムに選ぶ
-		std::vector<int> selected_pt_indices;
-		for (int j = 0; j < 8; ++j) {
-			int index;
-			while (true) {
-				index = (float)rand() / RAND_MAX * pts1.size();
-				if (std::find(selected_pt_indices.begin(), selected_pt_indices.end(), index) == selected_pt_indices.end()) {
-					break;
-				}
-			}
-
-			selected_pt_indices.push_back(index);
-		}
-
-		std::vector<Point2f> selected_pts[2];
-		for (int j = 0; j < 8; ++j) {
-			selected_pts[0].push_back(Point2f(normalized_pts[0][selected_pt_indices[j]].x, normalized_pts[0][selected_pt_indices[j]].y));
-			selected_pts[1].push_back(Point2f(normalized_pts[1][selected_pt_indices[j]].x, normalized_pts[1][selected_pt_indices[j]].y));
-		}
-
-		double confidence;
-		Mat F_hat = computeFundamentalMatByEightPoints(selected_pts[0], selected_pts[1], confidence);
-		std::cout << "F:\n" << T2.t() * F_hat * T1 << std::endl;
-
-		SVD svd(F_hat);
-		std::cout << svd.w << std::endl;
-		Mat_<double> w_prime = (Mat_<double>(3, 3) << svd.w.at<double>(0, 0), 0, 0,
-														0, svd.w.at<double>(1, 0), 0,
-														0, 0, 0);
-		std::cout << w_prime << std::endl;
-		Mat_<double> F_hat_prime = svd.u * w_prime * svd.vt;
-		Mat_<double> F = T2.t() * F_hat_prime * T1;
-		std::cout << "rank 2 F:\n" << F << std::endl;
-
-		if (confidence > best_confidence) {
-			best_F = F.clone();
-		}
-	}
-
-	return best_F;
-	*/
-
-	double confidence;
-	Mat F_hat = computeFundamentalMatByEightPoints(normalized_pts[0], normalized_pts[1], confidence);
-
-	// Fを、無理やりrank 2にする
-	SVD svd(F_hat);
-	std::cout << svd.w << std::endl;
-	Mat_<double> w_prime = (Mat_<double>(3, 3) << svd.w.at<double>(0, 0), 0, 0,
-													0, svd.w.at<double>(1, 0), 0,
-													0, 0, 0);
-	Mat_<double> F_hat_prime = svd.u * w_prime * svd.vt;
-
-	// normalizeする前に戻す
-	Mat_<double> F = T2.t() * F_hat_prime * T1;
+	Mat F = computeFundamentalMatByEightPoints(normalized_pts[0], T1, normalized_pts[1], T2);
 
 	return F;
 }
 
-Mat_<double> Reconstruction::computeFundamentalMatByEightPoints(std::vector<Point2f>& pts1, std::vector<Point2f>& pts2, double confidence) {
+Mat_<double> Reconstruction::computeFundamentalMatByEightPoints(std::vector<Point2f>& pts1, Mat_<double>& T1, std::vector<Point2f>& pts2, Mat_<double>& T2) {
 	Mat_<double> A(pts1.size(), 9);
 
 	for (int i = 0; i < pts1.size(); ++i) {
@@ -95,9 +39,19 @@ Mat_<double> Reconstruction::computeFundamentalMatByEightPoints(std::vector<Poin
 	SVD svd;
 	Mat_<double> u, w, vt;
 	svd.compute(A, u, w, vt);
-	Mat_<double> F = (Mat_<double>(3, 3) << vt(vt.rows-1, 0), vt(vt.rows-1, 1), vt(vt.rows-1, 2),
+	Mat_<double> F_hat = (Mat_<double>(3, 3) << vt(vt.rows-1, 0), vt(vt.rows-1, 1), vt(vt.rows-1, 2),
 											vt(vt.rows-1, 3), vt(vt.rows-1, 4), vt(vt.rows-1, 5),
 											vt(vt.rows-1, 6), vt(vt.rows-1, 7), vt(vt.rows-1, 8));
+
+	// Fを、無理やりrank 2にする
+	SVD svd2(F_hat);
+	Mat_<double> w_prime = (Mat_<double>(3, 3) << svd2.w.at<double>(0, 0), 0, 0,
+													0, svd2.w.at<double>(1, 0), 0,
+													0, 0, 0);
+	Mat_<double> F_hat_prime = svd2.u * w_prime * svd2.vt;
+
+	// normalizeする前に戻す
+	Mat_<double> F = T2.t() * F_hat_prime * T1;
 
 	return F;
 }

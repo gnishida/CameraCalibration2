@@ -25,7 +25,7 @@ public:
 	Reconstruction();
 
 	Mat findFundamentalMat(std::vector<Point2f>& pts1, std::vector<Point2f>& pts2, std::vector<uchar>& status);
-	Mat_<double> computeFundamentalMatByEightPoints(std::vector<Point2f>& pts1, std::vector<Point2f>& pts2, double confidence);
+	Mat_<double> computeFundamentalMatByEightPoints(std::vector<Point2f>& pts1, Mat_<double>& T1, std::vector<Point2f>& pts2, Mat_<double>& T2);
 	Mat_<double> normalizePoints(std::vector<Point2f>& pts, std::vector<Point2f>& normalized_pts);
 
 	Mat computeEpipole(cv::Mat& F, int whichImage);
