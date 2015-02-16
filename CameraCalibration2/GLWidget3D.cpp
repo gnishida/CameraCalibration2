@@ -144,6 +144,11 @@ void GLWidget3D::drawScene() {
 
 		drawTriangle(12, 13, 14);
 		drawTriangle(12, 14, 15);
+		drawTriangle(20, 12, 15);
+		drawTriangle(20, 15, 21);
+		drawTriangle(15, 14, 22);
+		drawTriangle(15, 22, 21);
+
 
 		/*
 		Subdiv2D subdiv(Rect(0, 0, 3000, 3000));
@@ -319,15 +324,15 @@ GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vect
 		GLuint texture;
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, warped_img.size().width, warped_img.size().height, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, warped_img.data);
 
 		textures[str] = std::make_pair(texture, texCoord);
-
-
-
+		
 		return texture;
 	} else {
 		texCoord = textures[str].second;
@@ -435,8 +440,8 @@ void GLWidget3D::reconstruct() {
 	cv::Mat_<double> F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
 	cv::Mat_<double> E = K.t() * F * K;
 
-	//reconstruction.sampson(F, pts[0], pts[1]);
-	correctMatches(F, pts[0], pts[1], pts[0], pts[1]);
+	reconstruction.sampson(F, pts[0], pts[1]);
+	//correctMatches(F, pts[0], pts[1], pts[0], pts[1]);
 
 	std::cout << "E:" << E << std::endl;
 	std::cout << "det(E) should be less than 1e-07." << std::endl;
