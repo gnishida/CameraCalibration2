@@ -5,12 +5,74 @@ using namespace cv;
 Reconstruction::Reconstruction() {
 }
 
-cv::Mat Reconstruction::findFundamentalMat(std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<uchar>& status) {
-	//return cv::findFundamentalMat(pts1, pts2, status);
-	return cv::findFundamentalMat(pts1, pts2, CV_FM_RANSAC, 3, 0.99, status);
+Mat Reconstruction::findFundamentalMat(std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<uchar>& status) {
+	//return cv::findFundamentalMat(pts1, pts2, CV_FM_RANSAC, 3, 0.99, status);
+
+	double best_confidence = 0.0;
+	cv::Mat best_F;
+
+	/*
+	for (int iter = 0; iter < 1000; ++iter) {
+		std::vector<int> selected_pt_indices;
+		for (int j = 0; j < 7; ++j) {
+			int index;
+			while (true) {
+				index = (float)rand() / RAND_MAX * pts1.size();
+				if (std::find(selected_pt_indices.begin(), selected_pt_indices.end(), index) == selected_pt_indices.end()) {
+					break;
+				}
+			}
+
+			selected_pt_indices.push_back(index);
+		}
+
+		std::vector<Point2f> selected_pts[2];
+		for (int j = 0; j < 7; ++j) {
+			selected_pts[0].push_back(Point2f(pts1[selected_pt_indices[j]].x, pts1[selected_pt_indices[j]].y));
+			selected_pts[1].push_back(Point2f(pts2[selected_pt_indices[j]].x, pts2[selected_pt_indices[j]].y));
+		}
+
+		double confidence;
+		cv::Mat F = computeFundamentalMatBySevenPoints(selected_pts[0], selected_pts[1], confidence);
+
+		if (confidence > best_confidence) {
+			best_F = F.clone();
+		}
+	}
+
+	return best_F;
+	*/
+
+	double confidence;
+	return computeFundamentalMatBySevenPoints(pts1, pts2, confidence);
+
 }
 
-cv::Mat Reconstruction::computeEpipole(cv::Mat& F, int whichImage) {
+Mat_<double> Reconstruction::computeFundamentalMatBySevenPoints(std::vector<Point2f>& pts1, std::vector<Point2f>& pts2, double confidence) {
+	Mat_<double> A(pts1.size(), 9);
+
+	for (int i = 0; i < pts1.size(); ++i) {
+		A(i, 0) = pts1[i].x * pts2[i].x;
+		A(i, 1) = pts1[i].y * pts2[i].x;
+		A(i, 2) = pts2[i].x;
+		A(i, 3) = pts1[i].x * pts2[i].y;
+		A(i, 4) = pts1[i].y * pts2[i].y;
+		A(i, 5) = pts2[i].y;
+		A(i, 6) = pts1[i].x;
+		A(i, 7) = pts1[i].y;
+		A(i, 8) = 1;
+	}
+
+	SVD svd(A);
+	Mat_<double> f(svd.vt.row(svd.vt.rows - 1));
+	Mat_<double> F = (Mat_<double>(3, 3) << f(0, 0), f(0, 1), f(0, 2),
+											f(0, 3), f(0, 4), f(0, 5),
+											f(0, 6), f(0, 7), f(0, 8));
+
+	return F;
+}
+
+Mat Reconstruction::computeEpipole(cv::Mat& F, int whichImage) {
 	cv::Mat e(3, 1, CV_64F);
 	if (whichImage == 1) {
 		cv::Mat u, d, v;
