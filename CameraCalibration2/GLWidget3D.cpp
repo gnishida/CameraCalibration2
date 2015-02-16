@@ -419,6 +419,9 @@ void GLWidget3D::reconstruct() {
 	reconstruction.sampson(F, pts[0], pts[1]);
 	//correctMatches(F, pts[0], pts[1], pts[0], pts[1]);
 
+	reconstruction.writeEpipolarLines("epipolar1.jpg", img[0], pts[0], F, pts[1], 2);
+	reconstruction.writeEpipolarLines("epipolar2.jpg", img[1], pts[1], F, pts[0], 1);
+
 	// Essential Matrixを計算する
 	cv::Mat_<double> E = K.t() * F * K;
 

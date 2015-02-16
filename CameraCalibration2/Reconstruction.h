@@ -27,8 +27,9 @@ public:
 	Mat findFundamentalMat(std::vector<Point2f>& pts1, std::vector<Point2f>& pts2, std::vector<uchar>& status);
 	Mat_<double> computeFundamentalMatByEightPoints(std::vector<Point2f>& pts1, Mat_<double>& T1, std::vector<Point2f>& pts2, Mat_<double>& T2);
 	Mat_<double> normalizePoints(std::vector<Point2f>& pts, std::vector<Point2f>& normalized_pts);
+	void writeEpipolarLines(char* filename, Mat& img, std::vector<Point2f>& pts1, Mat& F, std::vector<Point2f>& pts2, int whichImage);
 
-	Mat computeEpipole(cv::Mat& F, int whichImage);
+	Mat computeEpipole(Mat& F, int whichImage);
 	void computeProjectionMat(Matx33d E, Mat_<double>& R1, Mat_<double>& T1, Mat_<double>& R2, Mat_<double>& T2);
 
 	double unprojectPoints(const Mat_<double>& K, const Mat_<double>& R1, const Mat_<double>& T1, const Mat_<double>& R2, const Mat_<double>& T2, const std::vector<cv::Point2f>& pts1, const std::vector<cv::Point2f>& pts2, std::vector<cv::Point3d>& pts3d, Mat_<double>& P1, Mat_<double>& P2);

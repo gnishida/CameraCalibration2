@@ -91,6 +91,31 @@ Mat_<double> Reconstruction::normalizePoints(std::vector<Point2f>& pts, std::vec
 	return T;
 }
 
+void Reconstruction::writeEpipolarLines(char* filename, Mat& img, std::vector<Point2f>& pts1, Mat& F, std::vector<Point2f>& pts2, int whichImage) {
+	Mat tempImg;
+	flip(img, tempImg, 0);
+
+	std::vector<Vec3f> lines;
+	computeCorrespondEpilines(pts2, whichImage, F, lines);
+
+	for (int i = 0; i < lines.size(); ++i) {
+		int x1 = 0;
+		int y1 = -lines[i][2] / lines[i][1];
+		int x2 = tempImg.cols - 1;
+		int y2 = -(lines[i][0] + lines[i][2]) / lines[i][1];
+
+		Scalar color(i * 10 % 255, i * 20 % 255, i * 40 % 255);
+		cv::line(tempImg, Point(x1, y1), Point(x2, y2), color, 2);
+	}
+	for (int i = 0; i < pts1.size(); ++i) {
+		Scalar color(i * 10 % 255, i * 20 % 255, i * 40 % 255);
+		cv::circle(tempImg, pts1[i], 5, color, 3);
+	}
+
+	flip(tempImg, tempImg, 0);
+	imwrite(filename, tempImg);
+}
+
 Mat Reconstruction::computeEpipole(cv::Mat& F, int whichImage) {
 	cv::Mat e(3, 1, CV_64F);
 	if (whichImage == 1) {
