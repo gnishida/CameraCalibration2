@@ -410,18 +410,23 @@ void GLWidget3D::reconstruct() {
 		}
 	}
 
+	// Fundamental Matrixを計算する
 	Reconstruction reconstruction;
 	std::vector<uchar> status;
 	cv::Mat_<double> F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
-	cv::Mat_<double> E = K.t() * F * K;
 
+	// Fに基づき、2D座標を修正する
 	reconstruction.sampson(F, pts[0], pts[1]);
 	//correctMatches(F, pts[0], pts[1], pts[0], pts[1]);
+
+	// Essential Matrixを計算する
+	cv::Mat_<double> E = K.t() * F * K;
 
 	std::cout << "E:" << E << std::endl;
 	std::cout << "det(E) should be less than 1e-07." << std::endl;
 	std::cout << "det(E): " << cv::determinant(E) << std::endl;
 
+	// R、Tを計算する
 	Mat_<double> R1, R2, T1, T2;
 	reconstruction.decomposeEtoRandT(E, R1, R2, T1, T2);
 
@@ -432,6 +437,7 @@ void GLWidget3D::reconstruct() {
 		reconstruction.decomposeEtoRandT(E, R1, R2, T1, T2);
 	}
 
+	// triangulationにより3D座標を計算する
 	Mat_<double> P1, P2;
 	double avg_error = reconstruction.unprojectPoints(K, R1, T1, R2, T2, pts[0], pts[1], pts3d, P1, P2);
 	printf("avg error after reprojection: %lf\n", avg_error);
