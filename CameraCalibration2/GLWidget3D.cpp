@@ -412,7 +412,8 @@ void GLWidget3D::reconstruct() {
 	cv::Mat_<double> F = reconstruction.findFundamentalMat(pts[0], pts[1], status);
 	cv::Mat_<double> E = K.t() * F * K;
 
-	reconstruction.sampson(F, pts[0], pts[1]);
+	//reconstruction.sampson(F, pts[0], pts[1]);
+	correctMatches(F, pts[0], pts[1], pts[0], pts[1]);
 
 	std::cout << "E:" << E << std::endl;
 	std::cout << "det(E) should be less than 1e-07." << std::endl;
