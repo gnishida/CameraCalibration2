@@ -119,8 +119,8 @@ bool Reconstruction::unprojectPoints(const Mat_<double>& K, const Mat_<double>& 
 
 	error = mean(errors)[0];
 
-	if (numFront > (float)pts1.size() * 0.75) return true;
-	else false;
+	if (numFront > (float)pts1.size() * 0.75f) return true;
+	else return false;
 }
 
 Mat_<double> Reconstruction::triangulate(const Point3d& u, const Mat_<double>& P, const Point3d& u1, const Mat_<double>& P1) {
