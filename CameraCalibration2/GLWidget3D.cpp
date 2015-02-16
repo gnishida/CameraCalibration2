@@ -282,6 +282,29 @@ GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vect
 		dst[2].x = b(0, 0);
 		dst[2].y = b(1, 0);
 
+		// bounding box
+		float min_x = 0;
+		float min_y = 0;
+		float max_x = 0;
+		float max_y = 0;
+		min_x = std::min(dst[1].x, min_x);
+		max_x = std::max(dst[1].x, max_x);
+		min_x = std::min(dst[2].x, min_x);
+		max_x = std::max(dst[2].x, max_x);
+		min_y = std::min(dst[2].y, min_y);
+		max_y = std::max(dst[2].y, max_y);
+
+		float scale = 1.0f;
+		scale = std::min((float)img[0].cols / (max_x - min_x), 1.0f);
+		scale = std::min((float)img[0].rows / (max_y - min_y), scale);
+
+		// offset the coordinates and scale them so that the min_x = min_y = 0 and the size is less than or equal to the original size.
+		for (int i = 0; i < 3; ++i) {
+			dst[i].x = (dst[i].x - min_x) * scale;
+			dst[i].y = (dst[i].y - min_y) * scale;
+		}
+
+		// define the texture coordinates
 		texCoord.resize(3);
 		for (int i = 0; i < 3; ++i) {
 			texCoord[i].x = dst[i].x / img[0].size().width;
@@ -292,7 +315,7 @@ GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vect
 		cv::Mat warped_img;
 		flip(img[0], warped_img, 0);
 		warpAffine(warped_img, warped_img, affine, img[0].size());
-	
+
 		GLuint texture;
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);

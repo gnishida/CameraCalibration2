@@ -7,7 +7,7 @@ Reconstruction::Reconstruction() {
 
 cv::Mat Reconstruction::findFundamentalMat(std::vector<cv::Point2f>& pts1, std::vector<cv::Point2f>& pts2, std::vector<uchar>& status) {
 	//return cv::findFundamentalMat(pts1, pts2, status);
-	return cv::findFundamentalMat(pts1, pts2, CV_FM_RANSAC, 6, 0.99, status);
+	return cv::findFundamentalMat(pts1, pts2, CV_FM_RANSAC, 5, 0.99, status);
 }
 
 cv::Mat Reconstruction::computeEpipole(cv::Mat& F, int whichImage) {
