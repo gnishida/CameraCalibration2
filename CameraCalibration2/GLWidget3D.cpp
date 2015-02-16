@@ -126,6 +126,7 @@ void GLWidget3D::drawScene() {
 	glEnd();
 
 	if (pts3d.size() > 0) {
+		// 左側のボックスを描画
 		drawTriangle(0, 1, 2);
 		drawTriangle(0, 2, 3);
 		drawTriangle(0, 16, 17);
@@ -141,14 +142,13 @@ void GLWidget3D::drawScene() {
 		drawTriangle(6, 10, 11);
 		drawTriangle(6, 11, 7);
 
-
+		// 右側のテープを描画
 		drawTriangle(12, 13, 14);
 		drawTriangle(12, 14, 15);
 		drawTriangle(20, 12, 15);
 		drawTriangle(20, 15, 21);
 		drawTriangle(15, 14, 22);
 		drawTriangle(15, 22, 21);
-
 
 		/*
 		Subdiv2D subdiv(Rect(0, 0, 3000, 3000));
@@ -217,60 +217,12 @@ void GLWidget3D::drawTriangle(int index1, int index2, int index3) {
 	glVertex3f(pts3d[index3].x, pts3d[index3].y, pts3d[index3].z);
 
 	glEnd();
-
-	//glBindTexture(GL_TEXTURE_2D, 0);
-	//glDeleteTextures(1, &texture);
-}
-
-void GLWidget3D::drawSphere(float x, float y, float z, float r, const QColor& color) {
-	int slices = 16;
-	int stacks = 8;
-
-	glBegin(GL_QUADS);
-	glColor3f(color.redF(), color.greenF(), color.blueF());
-	for (int i = 0; i < slices; ++i) {
-		float theta1 = M_PI * 2.0f / slices * i;
-		float theta2 = M_PI * 2.0f / slices * (i + 1);
-
-		for (int j = 0; j < stacks; ++j) {
-			float phi1 = M_PI / stacks * j - M_PI * 0.5;
-			float phi2 = M_PI / stacks * (j + 1) - M_PI * 0.5;
-
-			QVector3D pt1 = QVector3D(cosf(theta1) * cosf(phi1), sinf(theta1) * cosf(phi1), sinf(phi1));
-			QVector3D pt2 = QVector3D(cosf(theta2) * cosf(phi1), sinf(theta2) * cosf(phi1), sinf(phi1));
-			QVector3D pt3 = QVector3D(cosf(theta2) * cosf(phi2), sinf(theta2) * cosf(phi2), sinf(phi2));
-			QVector3D pt4 = QVector3D(cosf(theta1) * cosf(phi2), sinf(theta1) * cosf(phi2), sinf(phi2));
-
-			glNormal3f(pt1.x(), pt1.y(), pt1.z());
-			glVertex3f(x + pt1.x() * r, y + pt1.y() * r, z + pt1.z() * r);
-			glNormal3f(pt2.x(), pt2.y(), pt2.z());
-			glVertex3f(x + pt2.x() * r, y + pt2.y() * r, z + pt2.z() * r);
-			glNormal3f(pt3.x(), pt3.y(), pt3.z());
-			glVertex3f(x + pt3.x() * r, y + pt3.y() * r, z + pt3.z() * r);
-			glNormal3f(pt4.x(), pt4.y(), pt4.z());
-			glVertex3f(x + pt4.x() * r, y + pt4.y() * r, z + pt4.z() * r);
-		}
-	}
-	glEnd();
 }
 
 GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vector<Point2f>& texCoord) {
 	QString str = QString("%1.%2.%3").arg(index1).arg(index2).arg(index3);
 	
 	if (!textures.contains(str)) {
-		Mat_<double> a = (Mat_<double>(3, 1) << pts3d[index2].x - pts3d[index1].x, pts3d[index2].y - pts3d[index1].y, pts3d[index2].z - pts3d[index2].z);
-		Mat_<double> b = (Mat_<double>(3, 1) << pts3d[index3].x - pts3d[index1].x, pts3d[index3].y - pts3d[index1].y, pts3d[index3].z - pts3d[index2].z);
-		Mat_<double> c = a.cross(b);
-		b = c.cross(a);
-		normalize(a, a);
-		normalize(b, b);
-		normalize(c, c);
-		Mat_<double> abc = (Mat_<double>(3, 3) << a(0, 0), b(0, 0), c(0, 0),
-													a(1, 0), b(1, 0), c(1, 0),
-													a(2, 0), b(2, 0), c(2, 0));
-		a = abc.inv() * Mat_<double>(pts3d[index2] - pts3d[index1]);
-		b = abc.inv() * Mat_<double>(pts3d[index3] - pts3d[index1]);
-
 		Point2f src[3];
 		src[0].x = pts[0][index1].x;
 		src[0].y = pts[0][index1].y;
@@ -279,6 +231,26 @@ GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vect
 		src[2].x = pts[0][index3].x;
 		src[2].y = pts[0][index3].y;
 
+		// 3D座標系の三角形x_1, x_2, x_3を、2D座標系に変換する
+		// ベクトルa = x_2 - x_1をX軸とし、ベクトルb = x_3 - x_1を仮のY軸とし、
+		// Z軸をc = a x bで求める。
+		// さらに、Y軸をb' = c x aで求める。
+		Mat_<double> a = (Mat_<double>(3, 1) << pts3d[index2].x - pts3d[index1].x, pts3d[index2].y - pts3d[index1].y, pts3d[index2].z - pts3d[index2].z);
+		Mat_<double> b = (Mat_<double>(3, 1) << pts3d[index3].x - pts3d[index1].x, pts3d[index3].y - pts3d[index1].y, pts3d[index3].z - pts3d[index2].z);
+		Mat_<double> c = a.cross(b);
+		b = c.cross(a);
+		normalize(a, a);
+		normalize(b, b);
+		normalize(c, c);
+
+		// 元の3D座標系から、上で求めた2D座標系への変換行列を作成する
+		Mat_<double> abc = (Mat_<double>(3, 3) << a(0, 0), b(0, 0), c(0, 0),
+													a(1, 0), b(1, 0), c(1, 0),
+													a(2, 0), b(2, 0), c(2, 0));
+		a = abc.inv() * Mat_<double>(pts3d[index2] - pts3d[index1]);
+		b = abc.inv() * Mat_<double>(pts3d[index3] - pts3d[index1]);
+
+		// 元の3D座標系から、2D座標系へ変換する
 		Point2f dst[3];
 		dst[0].x = 0;
 		dst[0].y = 0;
@@ -287,7 +259,7 @@ GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vect
 		dst[2].x = b(0, 0);
 		dst[2].y = b(1, 0);
 
-		// bounding box
+		// 変換した2D座標系で、Bounding Boxを計算する
 		float min_x = 0;
 		float min_y = 0;
 		float max_x = 0;
@@ -299,28 +271,31 @@ GLuint GLWidget3D::generateTexture(int index1, int index2, int index3, std::vect
 		min_y = std::min(dst[2].y, min_y);
 		max_y = std::max(dst[2].y, max_y);
 
+		// 変換した2D座標系で、元の画像のサイズ内に収まるよう、スケールする
 		float scale = 1.0f;
 		scale = std::min((float)img[0].cols / (max_x - min_x), 1.0f);
 		scale = std::min((float)img[0].rows / (max_y - min_y), scale);
-
-		// offset the coordinates and scale them so that the min_x = min_y = 0 and the size is less than or equal to the original size.
 		for (int i = 0; i < 3; ++i) {
 			dst[i].x = (dst[i].x - min_x) * scale;
 			dst[i].y = (dst[i].y - min_y) * scale;
 		}
 
-		// define the texture coordinates
+		// 変換した2D座標系に基づいて、テクスチャ座標を計算する
 		texCoord.resize(3);
 		for (int i = 0; i < 3; ++i) {
 			texCoord[i].x = dst[i].x / img[0].size().width;
 			texCoord[i].y = dst[i].y / img[0].size().height;
 		}
 
+		// 元の画像の座標から、上で計算した座標への変換するためのAffine変換行列を計算する
 		Mat affine = getAffineTransform(src, dst);
+
+		// 元の画像をAffine変換する
 		cv::Mat warped_img;
 		flip(img[0], warped_img, 0);
 		warpAffine(warped_img, warped_img, affine, img[0].size());
 
+		// テクスチャを作成する
 		GLuint texture;
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
